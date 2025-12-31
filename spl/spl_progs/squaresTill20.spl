@@ -1,0 +1,11 @@
+alias num R0;
+alias limit R1;
+num=1;
+limit=20;
+
+while(num<=limit) do
+    alias sqr R3;
+    sqr=num*num;
+    print sqr;
+    num=num+1;
+endwhile;
