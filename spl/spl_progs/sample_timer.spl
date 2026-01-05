@@ -15,4 +15,6 @@ restore;
 //set SP to USER SP saved in process table
 SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+13];
 
+print([SYSTEM_STATUS_TABLE+1]);
+
 ireturn;

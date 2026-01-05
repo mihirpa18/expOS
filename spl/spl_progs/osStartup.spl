@@ -2,6 +2,10 @@
 loadi(65,7);
 loadi(66,8);
 
+//INT 7 modules
+loadi(16,29);
+loadi(17,30);
+
 //INT 10 modules
 loadi(22,35);
 loadi(23,36);

@@ -1,0 +1,46 @@
+//set mod flag field in process table
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9]=5;  //5 SINCE IT SYS CALL NUM FOR WRITE IS 5 (INT 7)
+
+//STORE VALUE OF SP
+alias userSP R0;
+userSP=SP;
+
+//switch from user stack to kernal stack
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13]=SP;  //UPTR=SP
+SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] * 16) + 11] * 512) - 1;
+
+//to access the file descriptor (argument 1) we must calculate the physical address of the memory location where it is stored
+alias physicalPageNum R1;
+alias offset R2;
+alias fileDescPhysicalAddr R3;
+
+physicalPageNum=[PTBR + 2*((userSP-4)/512)];
+offset=((userSP-4)%512);
+fileDescPhysicalAddr= physicalPageNum*512 + offset;
+
+alias fileDescriptor R4;
+fileDescriptor=[fileDescPhysicalAddr];
+
+//If the file descriptor is not equal to -2, store -1 as a return value in userSP else print and ret 0
+if(fileDescriptor!=-2) 
+then
+    alias physicalRetAddr R5;
+    physicalRetAddr=[PTBR+ 2*((userSP-1)/512)]*512 + ((userSP-1)%512);
+    [physicalRetAddr]=-1;
+else    
+    alias word R5;
+    word=[([PTBR + 2*((userSP-3)/512)]*512) + ((userSP-3)%512)];
+    print word;
+    alias physicalRetAddr R6;
+    physicalRetAddr=[PTBR+ 2*((userSP-1)/512)]*512 + ((userSP-1)%512);
+    [physicalRetAddr]=0;
+endif;
+
+//sp=top of stack
+SP=userSP;
+
+//Reset the MODE FLAG field in the process table to 0.
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9]=0;
+
+//Pass control back to the user program using the ireturn statement
+ireturn;
