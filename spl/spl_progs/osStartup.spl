@@ -47,6 +47,15 @@ PTLR = 10;
 [PTBR+18] = 77;
 [PTBR+19] = "0110";
 
+//process table
+[PROCESS_TABLE+11]=80; //user area 
+[PROCESS_TABLE+1]=0; //pid
+
+//system status table
+[SYSTEM_STATUS_TABLE+1]=0; //current_pid 
+
+
+
 SP = 8*512;
 //second entry of the header of an executable file will contain an entry point value
 [76*512] = [65*512+1];

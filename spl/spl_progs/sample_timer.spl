@@ -1,2 +1,18 @@
+//set value of sp to uptr
+[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+13]=SP;
+
+//SET SP TO BEGINING OF KERNAL Stack
+SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+11]*512-1;
+
+//Save the user context to the kernel stack using the Backup instruction
+backup;
+
 print "TIMER";
+
+//restore user context from kernal stack
+restore;
+
+//set SP to USER SP saved in process table
+SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+13];
+
 ireturn;
