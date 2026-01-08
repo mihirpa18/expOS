@@ -9,7 +9,6 @@ int main(){
 
 decl
 	Student temp;
-	int retVal;
 	Student s1;
 enddecl
 
@@ -18,9 +17,9 @@ begin
 	s1=alloc();
 	s1.name="Mihir";
 	s1.marks=89;
-	
-	write(s1.name);
-	write(s1.marks);
+	breakpoint;
+	temp=exposcall("Write",-2,s1.name);
+	temp=exposcall("Write",-2,s1.marks);
 
 	return 0;
 
