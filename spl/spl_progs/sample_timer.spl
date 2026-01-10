@@ -1,3 +1,4 @@
+breakpoint;
 //set value of sp to uptr
 [PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+13]=SP;
 
@@ -54,5 +55,8 @@ restore;
 
 //set SP to USER SP saved in process table
 SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+13];
+
+
+breakpoint;
 
 ireturn;
