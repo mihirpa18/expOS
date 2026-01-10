@@ -7,14 +7,52 @@ SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+11]*512-1;
 //Save the user context to the kernel stack using the Backup instruction
 backup;
 
-print "TIMER";
+//obtain current process pid
+alias currPID R0;
+currPID=[SYSTEM_STATUS_TABLE+1];
+
+//process table entry
+alias process_table_entry R1;
+process_table_entry=PROCESS_TABLE+(currPID*16);
+
+//Save the KPTR, PTBR and PTLR values to the Process Table entry of the current process
+[process_table_entry+12]=SP%512;
+[process_table_entry+14]=PTBR;
+[process_table_entry+15]=PTLR;
+[process_table_entry+4]=READY;
+
+//JUST TOGLE SINCE ONLY 2 PROCESS
+alias newPID R2;
+if(currPID == 0) then
+    newPID = 1;
+else
+    newPID = 0;
+endif;
+
+//Restore the SP, PTBR and PTLR values from the Process Table entry for the new process
+alias new_process_table R3;
+new_process_table=PROCESS_TABLE+(newPID*16);
+
+SP=[new_process_table+11]*512 + [new_process_table+12];
+PTBR=[new_process_table+14];
+PTLR=[new_process_table+15];
+
+//set system status table id as new id
+[SYSTEM_STATUS_TABLE+1]=newPID;
+
+//if created ,process will have no "history" to remember, and thus no "user context" to be restored before being scheduled
+if([new_process_table+4] == CREATED) then
+    [new_process_table+4]=RUNNING;
+    SP=[new_process_table+13];
+    ireturn;
+endif;
+
+[new_process_table+4]=RUNNING;
 
 //restore user context from kernal stack
 restore;
 
 //set SP to USER SP saved in process table
 SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+13];
-
-print([SYSTEM_STATUS_TABLE+1]);
 
 ireturn;
