@@ -10,8 +10,7 @@ int main(){
             temp=exposcall("Write",-2,a);
             a=a+1;
         endwhile;
-        
+
         return 0;
-    
-    end
+    end  
 }
