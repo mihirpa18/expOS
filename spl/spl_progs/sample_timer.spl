@@ -24,11 +24,7 @@ process_table_entry=PROCESS_TABLE+(currPID*16);
 
 //JUST TOGLE SINCE ONLY 2 PROCESS
 alias newPID R2;
-if(currPID == 0) then
-    newPID = 1;
-else
-    newPID = 0;
-endif;
+newPID=(currPID+1)%3;
 
 //Restore the SP, PTBR and PTLR values from the Process Table entry for the new process
 alias new_process_table R3;
@@ -55,7 +51,6 @@ restore;
 
 //set SP to USER SP saved in process table
 SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+13];
-
 
 breakpoint;
 
