@@ -13,7 +13,7 @@ alias i R1;
 i=currPID+1;
 alias newPid R2;
 
-while(i<MAX_PROC_NUM && ([PROCESS_TABLE+(i*16)+4]==TERMINATED)) do
+while(i<MAX_PROC_NUM && ([PROCESS_TABLE+(i*16)+4]!=READY && [PROCESS_TABLE+(i*16)+4]!=CREATED)) do
     i=i+1;
 endwhile;
 
