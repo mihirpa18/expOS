@@ -1,0 +1,33 @@
+alias functionNum R1;
+alias currentPID R2;
+
+//if function num==3 
+if (functionNum==3) then
+
+    //call aquire terminal
+    multipush(R1,R2,R3);
+
+    R1=8;  //AQUIRE TERMINAL FUNCTION NUMBER
+    R2=currentPID;  
+
+    call RESOURCE_MANAGER;  //MODULE 0 - RESOURCE MANAGER
+
+    //can ignore R0 as aquire terminal dont return any VALUE
+
+    multipop(R1,R2,R3);
+
+    print R3;
+
+    //CALL RELEASE TERMINAL
+    multipush(R1,R2,R3);
+
+    R1=9;
+    R2=currentPID;
+
+    call RESOURCE_MANAGER;
+
+    multipop(R1,R2,R3);
+
+    return;
+
+endif;

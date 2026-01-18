@@ -20,15 +20,33 @@ loadi(64,14);
 loadi(4,17);
 loadi(5,18);
 
+//------------------------------------------------------------------------------------------------
+
+//load module 5-scheduler module
+loadi(50,63);
+loadi(51,64);
+
+//load module 0 -resource manager module
+loadi(40,53);
+loadi(41,54);
+
+//load module 4 -device manager module
+loadi(48,61);
+loadi(49,62);
+
+//------------------------------------------------------------------------------
+
 //load evenNum process
 loadi(86,69);
 
 //load prime num
 loadi(89,70);
 
-//load scheduler module
-loadi(50,63);
-loadi(51,64);
+//-----------------------------------------------------------------
+
+[TERMINAL_STATUS_TABLE]=0;
+
+//---------------------------------------------------------------------------
 
 //page table entries for init
 PTBR=PAGE_TABLE_BASE+20;
@@ -74,6 +92,8 @@ PTLR=10;
 //second entry of the header of an executable file will contain an entry point value for init
 [76*512] = [65*512+1];
 
+//----------------------------------------------------------------------------------------------------
+
 //page table entries for evenNum process
 PTBR=PAGE_TABLE_BASE+40;
 PTLR=10;
@@ -118,6 +138,7 @@ PTLR=10;
 //second entry of the header of an executable file will contain an entry point value for init
 [87*512] = [86*512+1];
 
+//----------------------------------------------------------------------------------------------------------
 
 //page table entries for prime num process
 PTBR=PAGE_TABLE_BASE+60;
@@ -162,6 +183,8 @@ PTLR=10;
 
 //second entry of the header of an executable file will contain an entry point value for init
 [90*512] = [89*512+1];
+
+//-----------------------------------------------------------------------------------------------
 
 //set all remaining process state to terminated
 alias i R4;
