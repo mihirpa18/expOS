@@ -1,7 +1,9 @@
 alias functionNum R1;
 alias currentPID R2;
 
-//if function num==3 
+//breakpoint;
+
+//if TERMINAL WRITE 
 if (functionNum==3) then
 
     //call aquire terminal
@@ -27,6 +29,44 @@ if (functionNum==3) then
     call RESOURCE_MANAGER;
 
     multipop(R1,R2,R3);
+
+    return;
+
+endif;
+
+//------------------------------------------------------------------------------------------------------
+
+//TERMINAL READ
+if (functionNum==4) then
+
+    //AQUIRE TERMINAL
+
+    //push all regs 
+    multipush(R1,R2,R3);
+    R1=8;
+    R2=currentPID;
+
+    call RESOURCE_MANAGER;
+
+    multipop(R1,R2,R3);  //restore regs
+
+
+    read;  // IN ->read from terminal
+
+    [PROCESS_TABLE+(currentPID*16)+4]=WAIT_TERMINAL;    //change state to wait terminal of curr process
+
+    //invoking context switch
+    multipush(R1,R2,R3);
+
+    call SCHEDULER;
+
+    //following are executed after returning from scheduler
+    multipop(R1,R2,R3);
+    
+
+    alias physicalReadAddr R4;
+    physicalReadAddr=[PTBR + 2*(R3/512)]*512 + (R3%512);
+    [physicalReadAddr]=[PROCESS_TABLE+(currentPID*16)+8];
 
     return;
 

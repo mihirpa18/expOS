@@ -1,0 +1,55 @@
+[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+9]=7;   //SET MODE FLAG TO SYS CALL NUM
+
+alias userSP R0;
+userSP=SP;
+
+//CHANGE FROM USER STACK TO KERNAL STACK
+[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+13]=SP;
+SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+11]*512-1;   
+
+//CHECK FOR FILE descriptor
+alias fileDescPage R1;
+alias offset R2;
+alias fileDescPhysicalAddr R3;
+
+fileDescPage=[PTBR + 2*((userSP-4)/512)];
+offset=(userSP-4)%512;
+fileDescPhysicalAddr=fileDescPage*512 + offset;
+
+alias fileDescriptor R4;
+fileDescriptor=[fileDescPhysicalAddr];
+
+if(fileDescriptor!=-1) then
+    //RETURN -1
+    alias physicalRetAddr R5;
+    physicalRetAddr=[PTBR+ 2*((userSP-1)/512)]*512 + ((userSP-1)%512);
+    [physicalRetAddr]=-1;
+else
+    alias wordAddr R5;
+    wordAddr=[PTBR+ 2*((userSP-3)/512)]*512  + (userSP-3)%512;
+
+    //breakpoint;
+   // print [wordAddr];
+
+    multipush(R0,R1,R2,R3,R4,R5);
+
+    R1=4;  //FUNCTION NUM OF TERMINAL READY
+    R2=[SYSTEM_STATUS_TABLE+1];
+    R3=[wordAddr];
+
+    call DEVICE_MANAGER;
+
+    multipop(R0,R1,R2,R3,R4,R5);
+
+    //RETURN 0
+    alias physicalRetAddr R6;
+    physicalRetAddr=[PTBR+ 2*((userSP-1)/512)]*512 + ((userSP-1)%512);
+    [physicalRetAddr]=0;
+
+endif;
+
+[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+9]=0;  //RESET MODE FLAG
+SP=userSP; //RESET SP TO userSP
+
+//breakpoint;
+ireturn;
