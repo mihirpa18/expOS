@@ -8,14 +8,14 @@ backup;
 alias reqPID R0;
 reqPID=[TERMINAL_STATUS_TABLE+1];
 
-breakpoint;
+//breakpoint;
 
 //STORE INPUT FROM P0 TO INPUT BUFFER IN PROCESS TABLE
 alias process_table_entry R1;
 process_table_entry=PROCESS_TABLE+(reqPID*16);
 [process_table_entry+8]=P0;
 
-breakpoint;
+//breakpoint;
 
 //RELEASE TERMINAL
 multipush(R0,R1);

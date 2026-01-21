@@ -1,0 +1,59 @@
+alias funNum R1;
+
+breakpoint;
+
+//GET FREE PAGE
+if(funNum==1) then
+    //INCREMENT WAIT MEM COUNT IN SYSTEM TABLE  
+    [SYSTEM_STATUS_TABLE+3]=[SYSTEM_STATUS_TABLE+3]+1;  //IT IS IMPORTANT TO INCREMENT IT OUTSIDE THE BUSY LOOP BCOZ-> IF A WAS WAITING AND ONE PAGE WAS FREED BUT ANOTHER PROCESS AY C TOOK THAT PAGE ,THEN IF INCREMENT WAS INSDE LOOP WHEN A GETS SCHEDULED AGAIN IT INCREMENTS IT AGAIN ->MAKING WAITING PROCESS COUNT AS 2 INSTEAD OF 1 
+
+    //WHILE NO AVAILABE PAGES
+    while([SYSTEM_STATUS_TABLE+2]==0) do 
+        //STATE->WAIT MEM
+        [PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+4]=WAIT_MEM;
+
+        //SCHEDULE OTHER PROCESS
+        multipush(R1,R2);
+        call SCHEDULER;
+        multipop(R1,R2);
+    endwhile;
+
+    //decrement wait mem count 
+    [SYSTEM_STATUS_TABLE+3]=[SYSTEM_STATUS_TABLE+3]-1;
+    //decrement mem free count
+    [SYSTEM_STATUS_TABLE+2]=[SYSTEM_STATUS_TABLE+2]-1;
+
+    //find free page and set corresponding entry as 1
+    alias i R3;
+    i=76; //76 is first usable page
+    while(i<MAX_MEM_PAGE && ([MEMORY_FREE_LIST+i]!=0)) do
+         i=i+1;
+    endwhile;
+
+    [MEMORY_FREE_LIST+i]=1;
+    R0=i;
+
+    return;
+endif;
+
+//release page;
+if(funNum==2) then
+    alias pageNum R2;
+    [MEMORY_FREE_LIST+pageNum]=[MEMORY_FREE_LIST+pageNum]-1;
+
+    if([MEMORY_FREE_LIST+pageNum]==0) then
+        [SYSTEM_STATUS_TABLE+2]=[SYSTEM_STATUS_TABLE+2]+1;        //INCREMENT MEM_FREE_COUNT
+    endif;
+
+    alias i R3;
+    i=1;
+    while(i<MAX_PROC_NUM) do
+        if([PROCESS_TABLE + (i*16) +4]==WAIT_MEM) then
+            [PROCESS_TABLE+ (i*16) +4]=READY;
+        endif;
+        i=i+1;
+    endwhile;
+
+    return;
+endif;
+
