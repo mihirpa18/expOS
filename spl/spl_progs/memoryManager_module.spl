@@ -43,16 +43,16 @@ if(funNum==2) then
 
     if([MEMORY_FREE_LIST+pageNum]==0) then
         [SYSTEM_STATUS_TABLE+2]=[SYSTEM_STATUS_TABLE+2]+1;        //INCREMENT MEM_FREE_COUNT
-    endif;
 
-    alias i R3;
-    i=1;
-    while(i<MAX_PROC_NUM) do
-        if([PROCESS_TABLE + (i*16) +4]==WAIT_MEM) then
-            [PROCESS_TABLE+ (i*16) +4]=READY;
-        endif;
-        i=i+1;
-    endwhile;
+        alias i R3;
+        i=1;
+        while(i<MAX_PROC_NUM) do
+            if([PROCESS_TABLE + (i*16) +4]==WAIT_MEM) then
+                [PROCESS_TABLE+ (i*16) +4]=READY;
+            endif;
+            i=i+1;
+        endwhile;
+    endif;
 
     return;
 endif;
