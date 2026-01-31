@@ -40,6 +40,10 @@ loadi(5,18);
 loadi(8,21);
 loadi(9,22);
 
+//DISK interrupts
+loadi(6,19);
+loadi(7,20);
+
 //------------------------------------------------------------------------------------------------
 
 //load module 0 -resource manager module
@@ -73,6 +77,9 @@ loadi(51,64);
 //system status table
 [SYSTEM_STATUS_TABLE+2]=NUM_MEM_PAGES-82;
 [SYSTEM_STATUS_TABLE+3]=0;
+
+//disk status table
+[DISK_STATUS_TABLE+0]=0;
 
 //---------------------------------------------------------------------------
 
@@ -135,6 +142,15 @@ PTLR=10;
 
 //second entry of the header of an executable file will contain an entry point value for init
 [76*512] = [65*512+1];
+
+//per process resource table for init 
+alias resource_table R1;
+resource_table=80*512+RESOURCE_TABLE_OFFSET;
+i=0;
+while(i<16) do
+    [resource_table+i]=-1;
+    i=i+1;
+endwhile;
 
 //----------------------------------------------------------------------------------------------------
 

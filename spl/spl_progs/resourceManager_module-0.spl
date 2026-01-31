@@ -1,6 +1,35 @@
 alias functionNum R1;
 alias currentPID R2;
 //breakpoint;
+
+//-----------------------------------------------------------------------------------------------------------------------------
+
+//aquire disk
+if(functionNum==3) then
+    breakpoint;
+    
+    //WAIT IN LOOP UNTIL disk IS FREE
+    while([DISK_STATUS_TABLE+0]==1) do
+        //state ->wait disk
+        [PROCESS_TABLE + (currentPID*16) +4]=WAIT_DISK;
+
+        //context switch
+        multipush(R1,R2);
+        call SCHEDULER;
+        multipop(R1,R2);
+
+    endwhile;
+
+    [DISK_STATUS_TABLE+0]=1;
+    [DISK_STATUS_TABLE+4]=currentPID;
+
+    return;
+
+endif;
+
+//-----------------------------------------------------------------------------------------------------------------
+
+//aquire terminal
 if(functionNum==8) then
     //WAIT IN LOOP UNTIL TERMINAL IS FREE
     while([TERMINAL_STATUS_TABLE]==1) do
@@ -20,6 +49,9 @@ if(functionNum==8) then
     return;
 endif;
 
+//---------------------------------------------------------------------------------------------------------------
+
+//release terminal
 if(functionNum==9) then
 
     //currentPID and PID stored in the Terminal Status table should be same
