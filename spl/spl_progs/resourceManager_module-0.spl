@@ -6,7 +6,7 @@ alias currentPID R2;
 
 //aquire disk
 if(functionNum==3) then
-    breakpoint;
+    //breakpoint;
     
     //WAIT IN LOOP UNTIL disk IS FREE
     while([DISK_STATUS_TABLE+0]==1) do

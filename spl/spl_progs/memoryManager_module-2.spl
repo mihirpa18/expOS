@@ -57,3 +57,59 @@ if(funNum==2) then
     return;
 endif;
 
+//get code page
+if(funNum==5) then
+    alias blockNum R2;
+    alias pid R3;
+    pid=0;
+    
+    //CHECK IF CODE BLOCK IS ALREADY PRESENT IN MEMORY
+    while(pid<16) do
+        alias i R4;
+        i=4;
+        while(i<8) do
+            if([DISK_MAP_TABLE+ (pid*10) +i]==blockNum) then
+                alias pt R5;
+                pt=PAGE_TABLE_BASE+(pid*20);
+
+                alias page R6;
+                page=[pt+(i*2)];
+
+                if(page!=-1) then
+                    [MEMORY_FREE_LIST+page]=[MEMORY_FREE_LIST+page]+1;  
+                    R0=page;
+                    return;
+                endif;
+            endif;
+            i=i+1;
+        endwhile;
+        pid=pid+1;
+    endwhile;
+
+    //IF CODE PAGE IS NOT ALREADY IN MEMORY THEN CALL GET FREE PAGE AND LOAD
+    if(pid==16) then
+        multipush(R1,R2,R3);
+        R1=1;
+        call MEMORY_MANAGER;
+        multipop(R1,R2,R3);
+
+        multipush(R0,R1,R2,R3);
+        R1=2;
+        R4=blockNum;
+        R2=[SYSTEM_STATUS_TABLE+1];
+        R3=R0;
+        call DEVICE_MANAGER;
+        multipop(R0,R1,R2,R3);
+
+    endif;
+
+    //breakpoint;
+
+    return;
+endif;
+
+//release block
+if(funNum==4) then
+    [DISK_FREE_LIST+R2]=[DISK_FREE_LIST+R2]-1;
+endif;
+

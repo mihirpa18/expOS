@@ -85,6 +85,46 @@ if(funNum == 4) then
         i=i+2;
     endwhile;
 
+    //invalidate disk map table 
+    //if there is any heap or stack valid page then call release disk 
+    //heap
+    i=2;
+    while(i<4) do  
+        alias block R4;
+        block=[DISK_MAP_TABLE+(currPID*10)+i]; 
+        if(block!=-1) then
+            multipush(R0,R1,R2,R3,R4);
+            R1=4;
+            R3=currPID;
+            R2=block;
+            call MEMORY_MANAGER;
+            multipop(R0,R1,R2,R3,R4);
+        endif;
+        i=i+1;
+    endwhile;
+    //stack
+    i=8;
+    while(i<10) do  
+        alias block R4;
+        block=[DISK_MAP_TABLE+(currPID*10)+i]; 
+        if(block!=-1) then
+            multipush(R0,R1,R2,R3,R4);
+            R1=4;
+            R3=currPID;
+            R2=block;
+            call MEMORY_MANAGER;
+            multipop(R0,R1,R2,R3,R4);
+        endif;
+        i=i+1;
+    endwhile;
+
+    //invalidate disk map table
+    i=0;
+    while(i<10) do
+        [DISK_MAP_TABLE+(currPID*10)+i]=-1;
+        i=i+1;
+    endwhile;
+
     //breakpoint;
     //print "4 done";
 
