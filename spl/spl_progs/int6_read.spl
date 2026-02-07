@@ -33,7 +33,7 @@ else
 
     multipush(R0,R1,R2,R3,R4,R5);
 
-    R1=4;  //FUNCTION NUM OF TERMINAL READY
+    R1=4;  //FUNCTION NUM OF TERMINAL READ
     R2=[SYSTEM_STATUS_TABLE+1];
     R3=[wordAddr];
 
@@ -49,7 +49,7 @@ else
 endif;
 
 [PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+9]=0;  //RESET MODE FLAG
-SP=userSP; //RESET SP TO userSP
+SP=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] *16) + 13];
 
 //breakpoint;
 ireturn;

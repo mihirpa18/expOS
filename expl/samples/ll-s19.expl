@@ -21,8 +21,8 @@ int main(){
         temp=exposcall("Read",-1,n);
         //breakpoint;
         temp=exposcall("Heapset");
-        //breakpoint;
         head=exposcall("Alloc",2);
+        breakpoint;
         tempNode=head;
         iter=0;
         while(iter<n) do

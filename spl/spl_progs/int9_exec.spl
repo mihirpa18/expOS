@@ -33,11 +33,11 @@ endwhile;
 
 //if file format is not xexe or no such file is found return 
 if(inodeInd==MAX_FILE_NUM || ([INODE_TABLE + (inodeInd*16) + 0]!=EXEC)) then
-    print "invalid file";
+    print "inv_file";
     alias retAddr R5;
     retAddr=[PTBR + 2*((userSP-1)/512)]*512 + ((userSP-1)%512);
     [retAddr]=-1;     //return -1
-    SP=userSP;
+    SP=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] *16) + 13];
     ireturn;
 endif;
 
@@ -142,6 +142,8 @@ R7=8;
 alias diskMap R8;
 diskMap=DISK_MAP_TABLE+ ([SYSTEM_STATUS_TABLE+1]*10);
 
+breakpoint;
+
 //set code pages in disk map table from inode table
 j=4;
 while(j<8) do
@@ -149,6 +151,8 @@ while(j<8) do
     R7=R7+1;
     j=j+1;
 endwhile;
+
+breakpoint;
 
 //set remaining entries (stack,heap,etc to -1)
 j=0;
@@ -171,6 +175,6 @@ endwhile;
 SP=8*512;
 [PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+9]=0;
 
-//breakpoint;
+breakpoint;
 
 ireturn;
