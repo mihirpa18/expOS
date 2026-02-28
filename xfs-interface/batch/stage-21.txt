@@ -22,4 +22,6 @@ load --module 5 ../spl/spl_progs/scheduler_module-5.xsm
 load --module 7 ../spl/spl_progs/boot_module-7.xsm
 load --exec ../expl/samples/oddNums.xsm
 load --exec ../expl/samples/evenNums.xsm
+load --exec ../expl/samples/pid.xsm
+load --exec ../expl/samples/fork3.xsm
 exit
