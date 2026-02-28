@@ -49,27 +49,39 @@ endif;
 if(funNum==3) then 
     alias currPID R2;
 
-    //print "exit function";
-
-    multipush(R1,R2);
-    //invoke free page table 
-    R1=4;
-    R2=currPID;
-    call PROCESS_MANAGER;
-    multipop(R1,R2);
-
-    //print "freePage";
     //breakpoint;
+    
+    //if not from exec signal the process which are waiting and also create orphan process
+    if([PROCESS_TABLE + currPID*16 +9] != 9) then   
+        alias i R3;
+        i=0;
+        while(i<MAX_PROC_NUM) do
+            if(([PROCESS_TABLE + (i*16) + 4] == WAIT_PROCESS) && [PROCESS_TABLE + (i*16) + 5] == currPID) then
+                [PROCESS_TABLE + (i*16) + 4] = READY;
+            endif;
 
+            if(([PROCESS_TABLE + (i*16) + 2] == currPID)) then
+                [PROCESS_TABLE + (i*16) + 2] = -1;
+            endif; 
+
+            i=i+1;
+        endwhile;
+    endif;
+
+    //invoke free page table 
     multipush(R1,R2);
-    //invoke free userAreaPage
-    R1=2;
+    R1=FREE_PAGE_TABLE;
     R2=currPID;
     call PROCESS_MANAGER;
     multipop(R1,R2);
 
-    // breakpoint;
-    //print "userarea";
+    //invoke free userAreaPage
+    multipush(R1,R2);
+    R1=FREE_USER_AREA_PAGE;
+    R2=currPID;
+    call PROCESS_MANAGER;
+    multipop(R1,R2);
+
 
     //set state as terminated for the process
     [PROCESS_TABLE + (currPID*16) +4]=TERMINATED;

@@ -13,6 +13,8 @@ set -e
 ./spl spl_progs/int8_fork.spl
 ./spl spl_progs/int9_exec.spl
 ./spl spl_progs/int10_exit.spl
+./spl spl_progs/int11_access.spl
+./spl spl_progs/int15_shutdown.spl
 ./spl spl_progs/memoryManager_module-2.spl
 ./spl spl_progs/processManager_module-1.spl
 ./spl spl_progs/resourceManager_module-0.spl
