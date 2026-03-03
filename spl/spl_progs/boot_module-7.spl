@@ -78,7 +78,7 @@ loadi(51,64);
 [TERMINAL_STATUS_TABLE]=0;          //terminal status table
 
 //system status table
-[SYSTEM_STATUS_TABLE+2]=NUM_MEM_PAGES-82;
+[SYSTEM_STATUS_TABLE+2]=NUM_MEM_PAGES-83;
 [SYSTEM_STATUS_TABLE+3]=0;
 
 //disk status table
@@ -149,6 +149,10 @@ while(i<10) do
     [DISK_MAP_TABLE + 10 + i]=-1;
     i=i+1;
 endwhile;
+
+[DISK_MAP_TABLE+1*10+4]=7;
+[DISK_MAP_TABLE+1*10+5]=8;
+
 
 //second entry of the header of an executable file will contain an entry point value for init
 [76*512] = [65*512+1];

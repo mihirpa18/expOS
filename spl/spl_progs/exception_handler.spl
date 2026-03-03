@@ -2,9 +2,6 @@ breakpoint;
 
 [PROCESS_TABLE+ ([SYSTEM_STATUS_TABLE+1]*16) +9]=-1;
 
-alias userSP R1;
-userSP=SP;
-
 [PROCESS_TABLE+ ([SYSTEM_STATUS_TABLE+1]*16) +13]=SP;
 SP=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1]*16) +11]*512-1;
 
@@ -14,8 +11,8 @@ backup;
 multipush(EIP);
 
 //if exception cause is not page fault or user stack is full -> exit 
-if(EC!=0 || userSP==(PTLR*512-1)) then
-    if(userSP==(PTLR*512-1)) then
+if(EC!=0 || [PROCESS_TABLE+ ([SYSTEM_STATUS_TABLE+1]*16) +13]==(PTLR*512-1)) then
+    if([PROCESS_TABLE+ ([SYSTEM_STATUS_TABLE+1]*16) +13]==(PTLR*512-1)) then
         print "StackOverflow";
     else
         if(EC==1) then
@@ -86,7 +83,7 @@ endif;
 multipop(EIP);
 restore;
 
-SP=userSP;
+SP=[PROCESS_TABLE+ ([SYSTEM_STATUS_TABLE+1]*16) +13];
 SP=SP+1;
 alias page R2;
 page=[[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1]*16) +14] + (SP/512)*2];
