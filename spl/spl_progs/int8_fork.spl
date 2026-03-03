@@ -1,5 +1,3 @@
-breakpoint;
-
 [PROCESS_TABLE+ ([SYSTEM_STATUS_TABLE+1]*16) +9]=8;   //mode flag
 
 alias userSP R1;
@@ -93,9 +91,17 @@ parentPID=[SYSTEM_STATUS_TABLE+1];
 //Child process shares the files and the semaphores opened by the parent process -> set per process resource table
 alias i R7;
 i=0;
-while(i<16) do
-    [UAP*512 + RESOURCE_TABLE_OFFSET +i]=[[PROCESS_TABLE + (parentPID*16) +11]*512 + RESOURCE_TABLE_OFFSET +i];
-    i=i+1;
+alias resource_table R8;
+resource_table = UAP*512 + RESOURCE_TABLE_OFFSET;
+while(i<MAX_PROC_NUM) do
+    [resource_table + i]=[[PROCESS_TABLE + (parentPID*16) +11]*512 + RESOURCE_TABLE_OFFSET +i];
+    [resource_table + i + 1]=[[PROCESS_TABLE + (parentPID*16) +11]*512 + RESOURCE_TABLE_OFFSET +i + 1];
+
+    //If the resource is semaphore -> increment the process count -> parent and child share the same semaphore
+    if([resource_table + i] == SEMAPHORE) then
+        [SEMAPHORE_TABLE + [resource_table + i + 1]*4 + 1] = [SEMAPHORE_TABLE + [resource_table + i + 1]*4 + 1] + 1;
+    endif;
+    i=i+2;
 endwhile;
 
 //copy disk map table
