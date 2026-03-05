@@ -105,6 +105,10 @@ while(i<10) do
     i=i+1;
 endwhile;
 
+//invalidate stack 
+[DISK_MAP_TABLE + (childPID*10) + 8] = -1;
+[DISK_MAP_TABLE + (childPID*10) + 9] = -1;
+
 breakpoint;
 
 //set up page table for child
