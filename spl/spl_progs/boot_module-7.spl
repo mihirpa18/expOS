@@ -9,7 +9,14 @@ loadi(60,4);
 //disk map table
 loadi(61,2);
 
+//root file
+loadi(62,5);
+
 //----------------------------------------------------------------------------------------
+
+//int4 - create and delete file
+loadi(10,23);
+loadi(11,24);
 
 //int 6 -read
 loadi(14,27);
@@ -113,6 +120,23 @@ while(i<32) do
     i = i+1;
 endwhile;
 
+//file status table
+i=0;
+while(i<60) do
+    [FILE_STATUS_TABLE + i*4 + 0] = -1;
+    [FILE_STATUS_TABLE + i*4 + 1] = -1;
+    i=i+1;
+endwhile;
+
+//buffer table
+i=0;
+while(i<4) do
+    [BUFFER_TABLE + i*4 + 0] = -1;
+    [BUFFER_TABLE + i*4 + 1] = 0;
+    [BUFFER_TABLE + i*4 + 2] = -1;
+    i = i+1;
+endwhile;
+
 //---------------------------------------------------------------------------
 
 //initialize MEMORY_FREE_LIST
@@ -163,11 +187,12 @@ PTLR=10;
 [PTBR+19] = "0110";
 
 //PROCESS TABLE FOR INIT
-[PROCESS_TABLE+16+11]=80; //user area 
 [PROCESS_TABLE+16+1]=1; //pid
+[PROCESS_TABLE+16+3] = 1; //user id of init -> root
 [PROCESS_TABLE+16+4]=CREATED; //STATE
-[PROCESS_TABLE+16+13]=8*512;
+[PROCESS_TABLE+16+11]=80; //user area 
 [PROCESS_TABLE+16+12]=0;
+[PROCESS_TABLE+16+13]=8*512;
 [PROCESS_TABLE+16+14]=PTBR;
 [PROCESS_TABLE+16+15]=PTLR;
 

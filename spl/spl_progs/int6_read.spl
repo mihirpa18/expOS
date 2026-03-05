@@ -1,5 +1,7 @@
 [PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+9]=7;   //SET MODE FLAG TO SYS CALL NUM
 
+breakpoint;
+
 alias userSP R0;
 userSP=SP;
 
