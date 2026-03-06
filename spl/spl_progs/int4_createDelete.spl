@@ -63,7 +63,7 @@ if(syscall == INT_CREATE) then
         [inode_table + 0] = DATA;           //type
         [inode_table + 1] = fileName;       //fileName
         [inode_table + 2] = 0;              //size
-        [inode_table + 3] = userId;           //user ind
+        [inode_table + 3] = userId;           //user id
         [inode_table + 4] = permission;     //permission
         //In the Inode Table entry, set the block numbers to -1.  /* No disk blocks are allocated to the file */
         [inode_table + 8] = -1; 
@@ -117,7 +117,6 @@ if (syscall == INT_DELETE) then
     if([inode_table + 0] != DATA) then
         [retAddr] = -1;
     else
-        print [inode_table + 4];
         if([inode_table + 4] == EXCLUSIVE && (userId != 1 && [inode_table + 3] != userId)) then
             [retAddr] = -1;
         else

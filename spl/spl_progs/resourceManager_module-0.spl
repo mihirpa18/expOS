@@ -131,9 +131,10 @@ if(functionNum == RELEASE_SEMAPHORE) then
             endif;
             i=i+1;
         endwhile;
-        [SEMAPHORE_TABLE + semIndex*4 + 1] = [SEMAPHORE_TABLE + semIndex*4 + 1] - 1;  //decrement process count 
     endif;
 
+    [SEMAPHORE_TABLE + semIndex*4 + 1] = [SEMAPHORE_TABLE + semIndex*4 + 1] - 1;  //decrement process count 
+    
     return;
 endif;
 
