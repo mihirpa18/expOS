@@ -1,11 +1,60 @@
 alias functionNum R1;
-alias currentPID R2;
 //breakpoint;
+
+//aquire buffer -> 1
+if(functionNum == ACQUIRE_BUFFER) then
+    alias buffNum R2;
+    alias pid R3;
+
+    while([BUFFER_TABLE + buffNum*4 + 2] != -1) do
+        [PROCESS_TABLE + (pid*16) + 4] = WAIT_BUFFER;
+        [PROCESS_TABLE + (pid*16) + 5] = buffNum;
+
+        multipush(R1,R2,R3);
+        call SCHEDULER;
+        multipop(R1,R2,R3);
+
+    endwhile;
+    
+    [BUFFER_TABLE + buffNum*4 + 2] = pid;
+
+    return;
+endif;
+
+//-----------------------------------------------------------------------------------------------------------------------------
+
+//release buffer - 2
+if(functionNum == RELEASE_BUFFER) then
+    alias buffNum R2;
+    alias pid R3;
+
+    if(pid != [BUFFER_TABLE + buffNum*4 + 2]) then
+        R0 = -1;
+        return;
+    endif;
+
+    [BUFFER_TABLE + buffNum*4 + 2] = -1;
+
+    alias i R4;
+    i = 0;
+    while(i<MAX_PROC_NUM) do
+        if(([PROCESS_TABLE + i*16 + 4] == WAIT_BUFFER) && ([PROCESS_TABLE + i*16 + 5] == buffNum)) then
+            [PROCESS_TABLE + i*16 + 4] = READY;
+            [PROCESS_TABLE + i*16 + 5] = -1;
+        endif;
+        i = i + 1;
+    endwhile;
+
+    R0 = 0;
+    return;
+endif;
+
 
 //-----------------------------------------------------------------------------------------------------------------------------
 
 //aquire disk
 if(functionNum==3) then
+    alias currentPID R2;
     //breakpoint;
     
     //WAIT IN LOOP UNTIL disk IS FREE
@@ -44,6 +93,7 @@ if(functionNum == ACQUIRE_INODE) then
 
     endwhile;
 
+    //file was deleted by some other process
     if([INODE_TABLE + ind*16 + 1] == -1) then
         R0 = -1;
     else
@@ -88,6 +138,7 @@ endif;
 
 //aquire semaphore -> 6
 if(functionNum == ACQUIRE_SEMAPHORE) then
+    alias currentPID R2;
     breakpoint;
     alias i R3;
     i=0;
@@ -140,6 +191,7 @@ endif;
 
 //aquire terminal
 if(functionNum==8) then
+    alias currentPID R2;
     //WAIT IN LOOP UNTIL TERMINAL IS FREE
     while([TERMINAL_STATUS_TABLE]==1) do
         [PROCESS_TABLE+(currentPID*16)+4]=WAIT_TERMINAL;  //CHANGE STATE
@@ -162,6 +214,7 @@ endif;
 
 //release terminal
 if(functionNum==9) then
+    alias currentPID R2;
 
     //currentPID and PID stored in the Terminal Status table should be same
     if([TERMINAL_STATUS_TABLE+1]!=currentPID) then
