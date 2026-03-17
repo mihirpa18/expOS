@@ -12,7 +12,6 @@ syscall=[[PTBR + ((userSP - 5) / 512) * 2] * 512 + (userSP - 5) % 512];
 
 //semlock 
 if(syscall == INT_SEMLOCK) then
-    breakpoint;
     //sem descriptor is passed as argument 
     alias semId R2;
     semId = [[PTBR + ((userSP - 4) / 512) * 2] * 512 + (userSP - 4) % 512];
@@ -79,6 +78,8 @@ if(syscall == INT_SEMUNLOCK) then
         endif;
     endif;
 endif;
+
+breakpoint;
 
 [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;
 SP=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] * 16 ) + 13];

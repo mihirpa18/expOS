@@ -28,7 +28,6 @@ endif;
 
 //disk load
 if (functionNumber == 2) then
-    breakpoint;
     alias pageNumber R3;
     alias blockNumber R4;
 
@@ -48,7 +47,6 @@ if (functionNumber == 2) then
     call SCHEDULER;
     multipop(R0, R1, R2, R3);
     
-    breakpoint;
 endif;
 
 //terminal write

@@ -46,7 +46,7 @@ if(EPN>3 && EPN<8) then
     alias pageNum R3;
     reqBlock=[DISK_MAP_TABLE+ ([SYSTEM_STATUS_TABLE+1]*10) +EPN];
 
-    breakpoint;
+    //breakpoint;
 
     //call get code page
     multipush(EPN,R1,R2);

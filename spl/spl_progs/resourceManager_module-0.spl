@@ -139,7 +139,6 @@ endif;
 //aquire semaphore -> 6
 if(functionNum == ACQUIRE_SEMAPHORE) then
     alias currentPID R2;
-    breakpoint;
     alias i R3;
     i=0;
 

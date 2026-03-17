@@ -1,4 +1,3 @@
-breakpoint;
 alias currPID R1;
 currPID=[SYSTEM_STATUS_TABLE+1];
 

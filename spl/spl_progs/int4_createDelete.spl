@@ -87,7 +87,6 @@ endif;
 
 //delete file -> 4
 if (syscall == INT_DELETE) then
-    breakpoint;
     alias i R4;
     i=0;
     alias ind R5;
@@ -191,6 +190,8 @@ if (syscall == INT_DELETE) then
         endif;
     endif;
 endif;
+
+breakpoint;
 
 [mode] = 0;
 SP = userSP;

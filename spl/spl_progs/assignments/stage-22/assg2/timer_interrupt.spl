@@ -7,7 +7,6 @@ SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+11]*512-1;
 //Save the user context to the kernel stack using the Backup instruction
 backup;
 
-breakpoint;
 //max number of memory usage 
 if((NUM_MEM_PAGES - [SYSTEM_STATUS_TABLE + 2]) > [SYSTEM_STATUS_TABLE + 25]) then
     [SYSTEM_STATUS_TABLE + 25] = (NUM_MEM_PAGES - [SYSTEM_STATUS_TABLE + 2]);

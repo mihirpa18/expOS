@@ -17,10 +17,10 @@ mode = PROCESS_TABLE+ (pid*16) +9;
 SP=[PROCESS_TABLE+ (pid*16) +11]*512-1;
 
 //invoke get pcb entry -> to get new pid for child process
-multipush(R1);
+multipush(R1,R10,R11,R12);
 R1=GET_PCB_ENTRY;
 call PROCESS_MANAGER;
-multipop(R1);
+multipop(R1,R10,R11,R12);
 
 alias childPID R2;
 childPID=R0;
@@ -36,18 +36,17 @@ PTBR=PAGE_TABLE_BASE + (pid*20);
 
 //if no heap page were allocated then allocate using get free page AND set up page table entries accordingly
 if([PTBR+4]==-1) then
-    breakpoint;
-    multipush(R1,R2);
+    multipush(R1,R2,R10,R11,R12);
     R1=GET_FREE_PAGE;
     call MEMORY_MANAGER;
-    multipop(R1,R2);
+    multipop(R1,R2,R10,R11,R12);
     [PTBR+4]=R0;
     [PTBR+5]="0110";
 
-    multipush(R1,R2);
+    multipush(R1,R2,R10,R11,R12);
     R1=GET_FREE_PAGE;
     call MEMORY_MANAGER;
-    multipop(R1,R2);
+    multipop(R1,R2,R10,R11,R12);
     [PTBR+6]=R0;
     [PTBR+7]="0110";
 endif;
@@ -57,22 +56,22 @@ alias stackPage1 R3;
 alias stackPage2 R4;
 alias UAP R5;
 
-multipush(R1,R2,R3,R4,R5);
+multipush(R1,R2,R3,R4,R5,R10,R11,R12);
 R1=GET_FREE_PAGE;
 call MEMORY_MANAGER;
-multipop(R1,R2,R3,R4,R5);
+multipop(R1,R2,R3,R4,R5,R10,R11,R12);
 stackPage1=R0;
 
-multipush(R1,R2,R3,R4,R5);
+multipush(R1,R2,R3,R4,R5,R10,R11,R12);
 R1=GET_FREE_PAGE;
 call MEMORY_MANAGER;
-multipop(R1,R2,R3,R4,R5);
+multipop(R1,R2,R3,R4,R5,R10,R11,R12);
 stackPage2=R0;
 
-multipush(R1,R2,R3,R4,R5);
+multipush(R1,R2,R3,R4,R5,R10,R11,R12);
 R1=GET_FREE_PAGE;
 call MEMORY_MANAGER;
-multipop(R1,R2,R3,R4,R5);
+multipop(R1,R2,R3,R4,R5,R10,R11,R12);
 UAP=R0;
 
 alias parentPID R6;
@@ -105,7 +104,7 @@ alias i R7;
 i=0;
 alias resource_table R8;
 resource_table = UAP*512 + RESOURCE_TABLE_OFFSET;
-while(i<MAX_PROC_NUM) do
+while(i<16) do
     [resource_table + i]=[[PROCESS_TABLE + (parentPID*16) +11]*512 + RESOURCE_TABLE_OFFSET +i];
     [resource_table + i + 1]=[[PROCESS_TABLE + (parentPID*16) +11]*512 + RESOURCE_TABLE_OFFSET +i + 1];
 
@@ -131,7 +130,6 @@ endwhile;
 [DISK_MAP_TABLE + (childPID*10) + 8] = -1;
 [DISK_MAP_TABLE + (childPID*10) + 9] = -1;
 
-breakpoint;
 
 //set up page table for child
 alias childPTBR R9;

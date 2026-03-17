@@ -117,14 +117,12 @@ endif;
 //FREE_PAGE_TABLE
 if(funNum == 4) then
     alias currPID R2;
-    
-    //print "in";
 
     //INVALIDATE LIBRARY entries
-    [PTBR+0]=-1;
-    [PTBR+1]="0000";
-    [PTBR+2]=-1;
-    [PTBR+3]="0000";
+    [PTBR + 0]=-1;
+    [PTBR + 1]="0000";
+    [PTBR + 2]=-1;
+    [PTBR + 3]="0000";
 
     //for each valid page , release page using release page in MEMORY_MANAGER
     alias i R3;
@@ -135,13 +133,13 @@ if(funNum == 4) then
             //call release page
             multipush(R1,R2,R3);
             R1=2;
-            R2=[PTBR+i];
+            R2=[PTBR + i];
             call MEMORY_MANAGER;
             multipop(R1,R2,R3);
 
             //invalidate entry
-            [PTBR+i]=-1;
-            [PTBR+(i+1)]="0000";
+            [PTBR + i]=-1;
+            [PTBR + (i+1)]="0000";
         endif;
         i=i+2;
     endwhile;
@@ -191,3 +189,53 @@ if(funNum == 4) then
 
     return ;
 endif;
+
+//kill all ->5
+if(funNum == KILL_ALL) then
+    alias currPID R2;
+    
+    //acquire lock on all files
+    alias i R3;
+    i = 0;
+    while(i<MAX_FILE_NUM) do
+        if([INODE_TABLE + i*16 + 1] != -1) then 
+            multipush(R1,R2,R3);
+            R1 = ACQUIRE_INODE;
+            R2 = i;
+            R3 = currPID;
+            call RESOURCE_MANAGER;
+            multipop(R1,R2,R3);
+        endif;
+        i = i+1;
+    endwhile;
+
+    //terminates all the processes except IDLE, INIT and the process with given PID.
+    i = 2;
+    while(i<MAX_PROC_NUM) do
+        if([PROCESS_TABLE + i*16 + 1] != currPID && [PROCESS_TABLE + 16*i + 4] != TERMINATED) then
+            multipush(R1,R2,R3);
+            R1 = EXIT_PROCESS;
+            R2 = i;
+            call PROCESS_MANAGER;
+            multipop(R1,R2,R3);
+        endif;
+        i = i+1;
+    endwhile;
+
+    i = 0;
+    while(i<MAX_FILE_NUM) do
+        if([INODE_TABLE + i*16 + 1] != -1) then 
+            multipush(R1,R2,R3);
+            R1 = RELEASE_INODE;
+            R2 = i;
+            R3 = currPID;
+            call RESOURCE_MANAGER;
+            multipop(R1,R2,R3);
+        endif;
+        i = i+1;
+    endwhile;
+
+    return;
+endif;
+
+

@@ -9,7 +9,7 @@ set -e
 ./spl spl_progs/timer_interrupt.spl
 ./spl spl_progs/exception_handler.spl
 ./spl spl_progs/int4_createDelete.spl
-./spl spl_progs/int5_openClose.spl
+./spl spl_progs/int5_openCloseSeek.spl
 ./spl spl_progs/int6_read.spl
 ./spl spl_progs/int7_write.spl
 ./spl spl_progs/int8_fork.spl

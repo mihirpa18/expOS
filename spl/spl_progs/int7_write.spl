@@ -1,61 +1,169 @@
-//set mod flag field in process table
-[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9]=5;  //5 SINCE IT SYS CALL NUM FOR WRITE IS 5 (INT 7)
+//*arg -> file Descriptor and word to be written
+//*return values -> 
+//  0	Success
+// -1	File Descriptor given is invalid
+// -2	No disk space / File Full
+// -3	Permission denied
 
-//STORE VALUE OF SP
-alias userSP R0;
-userSP=SP;
+alias userSP R1;
+userSP = SP;
 
-//switch from user stack to kernal stack
-[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13]=SP;  //UPTR=SP
-SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] * 16) + 11] * 512) - 1;
+alias pid R2;
+pid = [SYSTEM_STATUS_TABLE + 1];
 
-//to access the file descriptor (argument 1) we must calculate the physical address of the memory location where it is stored
-alias physicalPageNum R1;
-alias offset R2;
-alias fileDescPhysicalAddr R3;
+alias retAddr R3;
+retAddr = [PTBR + 2*((userSP - 1)/512)] * 512 + (userSP - 1) % 512;
 
-physicalPageNum=[PTBR + 2*((userSP-4)/512)];
-offset=((userSP-4)%512);
-fileDescPhysicalAddr= physicalPageNum*512 + offset;
+alias mode R4;
+mode = PROCESS_TABLE + (pid*16) + 9;
 
-alias fileDescriptor R4;
-fileDescriptor=[fileDescPhysicalAddr];
-
-//If the file descriptor is not equal to -2, store -1 as a return value in userSP else print and ret 0
-if(fileDescriptor!=-2) 
-then
-    alias physicalRetAddr R5;
-    physicalRetAddr=[PTBR+ 2*((userSP-1)/512)]*512 + ((userSP-1)%512);
-    [physicalRetAddr]=-1;
-else    
-    alias word R5;
-    word=[([PTBR + 2*((userSP-3)/512)]*512) + ((userSP-3)%512)];
+[mode] = INT_WRITE;   //SET MODE FLAG TO SYS CALL NUM - 7
 
 
-    //Push all registers used till now
-    multipush(R0,R1,R2,R3,R4,R5);
+//CHANGE FROM USER STACK TO KERNAL STACK
+[PROCESS_TABLE+(pid*16)+13]=SP;
+SP=[PROCESS_TABLE+(pid*16)+11]*512-1;   
 
-    //store 
-    R1=3;  //terminal_write
-    R2=[SYSTEM_STATUS_TABLE+1];  //curr pid
-    R3=word;  //word to be written
+alias fileDescriptor R5;
+fileDescriptor = [PTBR + 2*((userSP - 4)/512)] * 512 + (userSP - 4) % 512;
 
-    //call device manager
-    call DEVICE_MANAGER;    //MODULE 4 -DEVICE MANAGER MODULE
+alias wordAddr R6;
+wordAddr = [PTBR + 2*((userSP - 3)/512)] * 512 + (userSP - 3) % 512;
 
-    //restore registers
-    multipop(R0,R1,R2,R3,R4,R5);
+if([fileDescriptor] == -2) then        //if terminal write
+    //terminal write
+    multipush(R1,R2,R3,R4,R5,R6);
+    R1 = TERMINAL_WRITE;  //
+    R2 = pid;
+    R3 = [wordAddr];
+    call DEVICE_MANAGER;
+    multipop(R1,R2,R3,R4,R5,R6);
 
+    [retAddr] = 0;
+else
+    if([fileDescriptor]<0 || [fileDescriptor]>7) then
+        [retAddr] = -1;
+        [mode] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
 
-    alias physicalRetAddr R6;
-    physicalRetAddr=[PTBR+ 2*((userSP-1)/512)]*512 + ((userSP-1)%512);
-    [physicalRetAddr]=0;
+    alias resource_table R7;
+    resource_table = [PROCESS_TABLE + (pid*16) + 11]*512 + RESOURCE_TABLE_OFFSET;
+
+    //If the Resource identifier field of the Per Process Resource Table entry is invalid or does not indicate a FILE, return -1.  
+    if([resource_table + [fileDescriptor]*2] != FILE) then
+        [retAddr] = -1;
+        [mode] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    alias openFileInd R8;
+    openFileInd = [resource_table + [fileDescriptor]*2 + 1];
+    alias inodeInd R9;
+    inodeInd = [OPEN_FILE_TABLE + openFileInd*4];
+
+    //if current user is not root and owner of the file , return -3 -> permission denied
+    if(([PROCESS_TABLE + pid*16 + 3] != 1) && ([INODE_TABLE + inodeInd*16 + 3] != [PROCESS_TABLE + pid*16 + 3])) then
+        [retAddr] = -3;
+        [mode] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    //aquire lock
+    multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9);
+    R1 = ACQUIRE_INODE;
+    R2 = inodeInd;
+    R3 = pid;
+    call RESOURCE_MANAGER;
+    multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9);
+
+    //if lock fails
+    if(R0 == -1) then
+        [retAddr] = -1;
+        [mode] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    //Get the Lseek position from the Open File Table entry.
+    alias lseek R10;
+    lseek = OPEN_FILE_TABLE + openFileInd*4 + 2;
+
+    if([lseek] == MAX_FILE_SIZE) then
+        multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+        R1 = RELEASE_INODE;
+        R2 = inodeInd;
+        R3 = pid;
+        call RESOURCE_MANAGER;
+        multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+
+        [retAddr] = -2;
+        [mode] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+    
+    //if lseek value is multiple of 512 and same as file size in inode table
+    if([lseek]%512 == 0 && [INODE_TABLE + inodeInd*16 + 2] == [lseek]) then
+        multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+        R1 = GET_FREE_BLOCK;
+        call MEMORY_MANAGER;
+        multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+
+        if(R0 == -1) then
+            multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+            R1 = RELEASE_INODE;
+            R2 = inodeInd;
+            R3 = pid;
+            call RESOURCE_MANAGER;
+            multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+
+            [retAddr] = -2;
+            [mode] = 0;
+            SP = userSP;
+            ireturn;
+        else
+            [INODE_TABLE + inodeInd*16 + 8 + ([lseek]/512)] = R0;
+        endif;
+    endif;
+
+    alias blockNum R11;
+    blockNum = [INODE_TABLE + inodeInd*16 + 8 + ([lseek]/512)];
+
+    alias blockOffset R12;
+    blockOffset = [lseek]%512;
+
+    multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11,R12);
+    R1 = BUFFERED_WRITE;
+    R2 = blockNum;
+    R3 = blockOffset;
+    R4 = [wordAddr];
+    call FILE_MANAGER;
+    multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11,R12);
+
+    //if lseek = file size -> increment file size in inode table and mem copy of root file
+    if([lseek] == [INODE_TABLE + inodeInd*16 + 2]) then
+        [INODE_TABLE + inodeInd*16 + 2] = [INODE_TABLE + inodeInd*16 + 2] + 1;
+        [ROOT_FILE + inodeInd*8 + 1] = [ROOT_FILE + inodeInd*8 + 1] + 1;
+    endif;
+
+    [lseek] = [lseek] + 1;
+
+    multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11,R12);
+    R1 = RELEASE_INODE;
+    R2 = inodeInd;
+    R3 = pid;
+    call RESOURCE_MANAGER;
+    multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11,R12);
+
+    [retAddr] = 0;
 endif;
 
-//sp=top of stack
-SP=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] *16) + 13];
-//Reset the MODE FLAG field in the process table to 0.
-[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9]=0;
+breakpoint;
 
-//Pass control back to the user program using the ireturn statement
+[mode] = 0;
+SP=userSP;
 ireturn;
