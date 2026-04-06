@@ -162,8 +162,6 @@ else
     [retAddr] = 0;
 endif;
 
-breakpoint;
-
 [mode] = 0;
 SP=userSP;
 ireturn;

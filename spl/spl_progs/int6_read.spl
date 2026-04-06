@@ -148,8 +148,6 @@ else
 
 endif;
 
-breakpoint;
-
 [mode]=0;  //RESET MODE FLAG
 SP=userSP;
 ireturn;

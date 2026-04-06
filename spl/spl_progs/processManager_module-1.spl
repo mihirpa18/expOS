@@ -118,28 +118,32 @@ endif;
 if(funNum == 4) then
     alias currPID R2;
 
-    //INVALIDATE LIBRARY entries
-    [PTBR + 0]=-1;
-    [PTBR + 1]="0000";
-    [PTBR + 2]=-1;
-    [PTBR + 3]="0000";
+    // Calculate the actual page table base for the given PID
+    alias targetPTBR R5;
+    targetPTBR = PAGE_TABLE_BASE + (currPID * 20);
+
+    //INVALIDATE LIBRARY entries using targetPTBR
+    [targetPTBR + 0]=-1;
+    [targetPTBR + 1]="0000";
+    [targetPTBR + 2]=-1;
+    [targetPTBR + 3]="0000";
 
     //for each valid page , release page using release page in MEMORY_MANAGER
     alias i R3;
     i=4;
     while(i<20) do
-        if([PTBR + i]!=-1) then
+        if([targetPTBR + i]!=-1) then
 
-            //call release page
-            multipush(R1,R2,R3);
+            //call release page (Added R5 to multipush/pop to protect our pointer)
+            multipush(R1,R2,R3,R5);
             R1=2;
-            R2=[PTBR + i];
+            R2=[targetPTBR + i];
             call MEMORY_MANAGER;
-            multipop(R1,R2,R3);
+            multipop(R1,R2,R3,R5);
 
             //invalidate entry
-            [PTBR + i]=-1;
-            [PTBR + (i+1)]="0000";
+            [targetPTBR + i]=-1;
+            [targetPTBR + (i+1)]="0000";
         endif;
         i=i+2;
     endwhile;

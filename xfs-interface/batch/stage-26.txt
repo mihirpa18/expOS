@@ -1,0 +1,41 @@
+fdisk
+load --os ../spl/spl_progs/osStartup.xsm
+load --library ../expl/library.lib
+load --init ../expl/samples/stage-26/login.xsm
+load --exhandler ../spl/spl_progs/exception_handler.xsm
+load --int=timer ../spl/spl_progs/timer_interrupt.xsm
+load --int=console ../spl/spl_progs/console_interrupt.xsm
+load --int=disk ../spl/spl_progs/disk_interrupt.xsm
+load --int=4 ../spl/spl_progs/int4_createDelete.xsm
+load --int=5 ../spl/spl_progs/int5_openCloseSeek.xsm
+load --int=6 ../spl/spl_progs/int6_read.xsm
+load --int=7 ../spl/spl_progs/int7_write.xsm
+load --int=8 ../spl/spl_progs/int8_fork.xsm
+load --int=9 ../spl/spl_progs/int9_exec.xsm
+load --int=10 ../spl/spl_progs/int10_exit.xsm
+load --int=11 ../spl/spl_progs/int11_access.xsm
+load --int=12 ../spl/spl_progs/int12_logout.xsm
+load --int=13 ../spl/spl_progs/int13_semGetRel.xsm
+load --int=14 ../spl/spl_progs/int14_semlockUnlock.xsm
+load --int=15 ../spl/spl_progs/int15_shutdown.xsm
+load --int=16 ../spl/spl_progs/int16_usermgmt.xsm
+load --int=17 ../spl/spl_progs/int17_login.xsm
+load --idle ../expl/samples/idle.xsm
+load --module 0 ../spl/spl_progs/resourceManager_module-0.xsm
+load --module 1 ../spl/spl_progs/processManager_module-1.xsm
+load --module 2 ../spl/spl_progs/memoryManager_module-2.xsm
+load --module 3 ../spl/spl_progs/fileManager_module-3.xsm
+load --module 4 ../spl/spl_progs/deviceManager_module-4.xsm
+load --module 5 ../spl/spl_progs/scheduler_module-5.xsm
+load --module 7 ../spl/spl_progs/boot_module-7.xsm
+load --exec ../expl/samples/stage-23/create.xsm 
+load --exec ../expl/samples/stage-23/delete.xsm 
+load --exec ../expl/samples/stage-25/cat.xsm 
+load --exec ../expl/samples/stage-25/cp.xsm 
+load --exec ../expl/samples/stage-25/ls.xsm 
+load --exec ../expl/samples/stage-25/rm.xsm 
+load --exec ../expl/samples/stage-26/ru.xsm 
+load --exec ../expl/samples/stage-26/lu.xsm 
+load --exec ../expl/samples/stage-25/rvrs.xsm
+load --shell ../expl/samples/shell.xsm
+exit
