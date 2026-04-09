@@ -7,6 +7,37 @@ SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE+1]*16)+11]*512-1;
 //Save the user context to the kernel stack using the Backup instruction
 backup;
 
+//if swapping is initiated 
+if([SYSTEM_STATUS_TABLE + 5] != 0) then
+    if([SYSTEM_STATUS_TABLE + 1] == SWAPPER_DAEMON && [SYSTEM_STATUS_TABLE + 5] == SWAP_OUT) then    
+        R1 = SWAP_OUT;
+        R2 = [SYSTEM_STATUS_TABLE + 1];
+        call PAGER_MODULE;
+    else
+        if([SYSTEM_STATUS_TABLE + 1] == SWAPPER_DAEMON && [SYSTEM_STATUS_TABLE + 5] == SWAP_IN) then    
+            R1 = SWAP_IN;
+            R2 = [SYSTEM_STATUS_TABLE + 1];
+            call PAGER_MODULE;        
+        endif;
+    endif;
+else
+    //initiate swapping
+    if([SYSTEM_STATUS_TABLE + 2] < MEM_LOW) then
+        [SYSTEM_STATUS_TABLE + 5] = SWAP_OUT;
+    else
+        if([SYSTEM_STATUS_TABLE + 4] != 0) then
+            alias i R4;
+            i = 0;
+            while(i < MAX_PROC_NUM) do
+                if([PROCESS_TABLE + i*16 + 6] == 1 && ([PROCESS_TABLE + i*16] > MAX_TICK || [SYSTEM_STATUS_TABLE + 2] > MEM_HIGH)) then
+                    [SYSTEM_STATUS_TABLE + 5] = SWAP_IN;
+                endif;
+                i = i + 1;
+            endwhile;
+        endif;
+    endif;
+endif;
+
 //obtain current process pid
 alias currPID R0;
 currPID=[SYSTEM_STATUS_TABLE+1];

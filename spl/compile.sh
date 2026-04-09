@@ -28,5 +28,6 @@ set -e
 ./spl spl_progs/fileManager_module-3.spl
 ./spl spl_progs/deviceManager_module-4.spl
 ./spl spl_progs/scheduler_module-5.spl
+./spl spl_progs/pager_module-6.spl
 
 echo "All SPL files compiled successfully."

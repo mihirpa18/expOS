@@ -134,5 +134,21 @@ if(funNum==5) then
     return;
 endif;
 
+//get swap block - 6
+if(funNum == GET_SWAP_BLOCK) then
+    alias i R2;
+    i = DISK_SWAP_AREA;
 
+    while(i < DISK_SIZE) do 
+        if([DISK_FREE_LIST + i] == 0) then
+            [DISK_FREE_LIST + i] = 1;
+            R0 = i;
+            return;
+        endif;
+        i = i + 1;
+    endwhile;
+
+    R0 = -1;
+    return;
+endif;
 

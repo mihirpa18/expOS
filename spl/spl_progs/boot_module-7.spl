@@ -119,17 +119,23 @@ loadi(49,62);
 loadi(50,63);
 loadi(51,64);
 
+//load module 6-pager module
+loadi(52,65);
+loadi(53,66);
+
 //------------------------------------------------------------------------------
 
 [TERMINAL_STATUS_TABLE]=0;          //terminal status table
 
 //system status table
-[SYSTEM_STATUS_TABLE] = 0;
-[SYSTEM_STATUS_TABLE+2]=NUM_MEM_PAGES-81;
-[SYSTEM_STATUS_TABLE+3]=0;
+[SYSTEM_STATUS_TABLE] = 0;                        //curr user id
+[SYSTEM_STATUS_TABLE + 2] = 45;                   //mem free count
+[SYSTEM_STATUS_TABLE + 3] = 0;                    //wait mem
+[SYSTEM_STATUS_TABLE + 4] = 0;                    //swapped count
+[SYSTEM_STATUS_TABLE + 5] = 0;                    //PAGING_STATUS
 
 //disk status table
-[DISK_STATUS_TABLE+0]=0;
+[DISK_STATUS_TABLE]=0;           //status 
 
 //semaphore table and open file table
 alias i R0;
@@ -139,17 +145,15 @@ while(i<32) do
     semaphore_table = SEMAPHORE_TABLE + i*4;
     [semaphore_table] = -1;
     [semaphore_table + 1] = 0;
-    i = i+1;
-endwhile;
 
-i=0;
-while(i<32) do
     alias openFiletable R5;
     openFiletable = OPEN_FILE_TABLE + i*4;
     [openFiletable] = -1;
     [openFiletable + 1] = 0;
+
     i = i+1;
 endwhile;
+
 
 //file status table
 i=0;
@@ -172,14 +176,13 @@ while(i<4) do
     i = i+1;
 endwhile;
 
-
 //---------------------------------------------------------------------------
 
 //initialize MEMORY_FREE_LIST
 i=0;
 
 while(i < NUM_MEM_PAGES) do
-    if(i<=80) then
+    if(i<=82) then
         [MEMORY_FREE_LIST+i]=1;
     else
         [MEMORY_FREE_LIST+i]=0;
@@ -190,8 +193,8 @@ endwhile;
 
 //--------------------------------------------------------------------------------
 
-//page table entries for init
-PTBR=PAGE_TABLE_BASE + LOGIN_PROCESS*20;
+//page table entries for init or login
+PTBR=PAGE_TABLE_BASE + 20;
 PTLR=10;
 
 //Library
@@ -225,14 +228,14 @@ PTLR=10;
 //PROCESS TABLE FOR INIT
 alias initProcessT R2;
 initProcessT = PROCESS_TABLE + 16;
-[initProcessT + 1] = LOGIN_PROCESS; //pid
-[initProcessT + 3] = KERNEL; //user id of init -> root
-[initProcessT + 4] = CREATED; //STATE
-[initProcessT + 11] = 77; //user area 
-[initProcessT + 12] = 0;
-[initProcessT + 13] = 8*512;
-[initProcessT + 14] = PTBR;
-[initProcessT + 15] = PTLR;
+[initProcessT + 1] = LOGIN_PROCESS;       //pid
+[initProcessT + 3] = KERNEL;              //user id of init -> root
+[initProcessT + 4] = CREATED;             //STATE
+[initProcessT + 11] = 77;                 //user area 
+[initProcessT + 12] = 0;                  //kptr
+[initProcessT + 13] = 8*512;              //uptr
+[initProcessT + 14] = PTBR;               //PTBR 
+[initProcessT + 15] = PTLR;               //PTLR
 
 //second entry of the header of an executable file will contain an entry point value for init
 [66*512] = [65*512+1];
@@ -249,7 +252,7 @@ endwhile;
 //----------------------------------------------------------------------------------------------------
 
 //page table entries for shell
-PTBR = PAGE_TABLE_BASE + SHELL_PROCESS*20;
+PTBR = PAGE_TABLE_BASE + 40;
 PTLR = 10;
 
 //Library
@@ -282,7 +285,7 @@ PTLR = 10;
 
 //PROCESS TABLE FOR shell
 alias shellProcessT R3;
-shellProcessT = PROCESS_TABLE + 2*16;
+shellProcessT = PROCESS_TABLE + 32;
 [shellProcessT + 1] = SHELL_PROCESS; //pid
 [shellProcessT + 2] = LOGIN_PROCESS; //ppid -> 1
 [shellProcessT + 4] = TERMINATED; //STATE
@@ -306,7 +309,7 @@ endwhile;
 //disk map table for shell
 i=0;
 alias diskMT R4;
-diskMT = DISK_MAP_TABLE + 2*10;
+diskMT = DISK_MAP_TABLE + 20;
 while(i<10) do
     [diskMT + i]=-1;
     i=i+1;
@@ -318,9 +321,14 @@ endwhile;
 //---------------------------------------------------------------------------------------------
 
 //set all remaining process state to terminated
-i = 3;
+i = 0;
 while(i<MAX_PROC_NUM) do
-    [PROCESS_TABLE + (i*16) + 4] = TERMINATED;
+    if(i > 2) then
+        [PROCESS_TABLE + (i*16) + 4] = TERMINATED;
+    endif;
+
+    [PROCESS_TABLE + i*16 ] = 0;     //tick value to 0
+
     i=i+1;
 endwhile;
 
