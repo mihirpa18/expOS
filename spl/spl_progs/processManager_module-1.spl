@@ -215,7 +215,7 @@ if(funNum == KILL_ALL) then
 
     //terminates all the processes except IDLE, INIT and the process with given PID.
     i = 2;
-    while(i<MAX_PROC_NUM) do
+    while(i < (MAX_PROC_NUM - 1)) do
         if([PROCESS_TABLE + i*16 + 1] != currPID && [PROCESS_TABLE + 16*i + 4] != TERMINATED) then
             multipush(R1,R2,R3);
             R1 = EXIT_PROCESS;
