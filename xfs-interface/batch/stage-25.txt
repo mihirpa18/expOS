@@ -35,6 +35,7 @@ load --exec ../expl/samples/stage-25/rvrs.xsm
 load --exec ../expl/samples/stage-25/append.xsm 
 load --exec ../expl/samples/stage-25/assg3.xsm 
 load --exec ../expl/samples/stage-25/assg4.xsm 
-load --exec ../expl/samples/stage-24/FRead.xsm
-load --data ../expl/samples/stage-24/numbers.dat
+load --exec ../expl/samples/stage-25/modi.xsm 
+load --exec ../expl/samples/stage-23/create.xsm
+load --exec ../expl/samples/stage-23/delete.xsm
 exit
