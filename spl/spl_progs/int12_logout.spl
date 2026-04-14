@@ -2,6 +2,7 @@
 //*return values -> 
 // -1	on error else does not return
 
+breakpoint;
 
 alias userSP R1;
 userSP = SP;
@@ -34,6 +35,8 @@ R1 = KILL_ALL;    // 5
 R2 = pid;
 call PROCESS_MANAGER;
 multipop(R1,R2,R3,R4);
+
+breakpoint;
 
 [PROCESS_TABLE + pid*16 + 4] = TERMINATED;
 

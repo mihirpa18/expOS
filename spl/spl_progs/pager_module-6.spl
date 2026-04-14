@@ -14,7 +14,7 @@ if(funNum == SWAP_OUT) then
     alias maxTick R7;
     maxTick = -1;
 
-    while(i < MAX_PROC_NUM) do
+    while(i < MAX_PROC_NUM - 1) do
         alias process_table R8;
         process_table = PROCESS_TABLE + i*16;
         if([process_table + 6] == 0) then
@@ -112,7 +112,7 @@ if(funNum == SWAP_IN) then
     swapProc = -1;
     alias maxTick R5;
     maxTick = -1;
-    while(i < MAX_PROC_NUM) do
+    while(i < MAX_PROC_NUM - 1) do
         //swapped and in ready state and with highest tick val
         if([PROCESS_TABLE + i*16 + 6] == 1 && [PROCESS_TABLE + i*16 + 4] == READY) then
             if([PROCESS_TABLE + i*16] > maxTick) then

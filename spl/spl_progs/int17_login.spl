@@ -4,7 +4,6 @@
 // -1	invalid username or password
 // -2	permission denied
 
-breakpoint;
 
 alias userSP R1;
 userSP = SP;

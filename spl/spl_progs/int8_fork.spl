@@ -177,6 +177,5 @@ endwhile;
 [mode]=0;   
 SP = userSP;
 
-breakpoint;
 
 ireturn;

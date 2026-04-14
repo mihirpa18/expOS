@@ -39,7 +39,14 @@ load --exec ../expl/samples/stage-26/ru.xsm
 load --exec ../expl/samples/stage-26/lu.xsm 
 load --exec ../expl/samples/stage-27/fork4.xsm 
 load --exec ../expl/samples/stage-27/assg2.xsm 
-load --exec ../expl/samples/fork3.xsm 
+load --exec ../expl/samples/stage-27/assg3.xsm 
+load --exec ../expl/samples/stage-27/assg4.xsm 
+load --exec ../expl/samples/stage-27/pgm1.xsm 
+load --exec ../expl/samples/stage-27/pgm2.xsm 
+load --exec ../expl/samples/stage-27/merge.xsm 
+load --exec ../expl/samples/stage-27/m_merge.xsm 
+load --exec ../expl/samples/stage-27/m_sort.xsm 
+load --exec ../expl/samples/stage-27/m_store.xsm 
 load --exec ../expl/samples/pid.xsm
 load --shell ../expl/samples/shell.xsm
 exit

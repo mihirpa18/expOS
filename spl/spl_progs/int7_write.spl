@@ -75,8 +75,8 @@ else
     //aquire lock
     multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9);
     R1 = ACQUIRE_INODE;
-    R2 = inodeInd;
     R3 = pid;
+    R2 = inodeInd;
     call RESOURCE_MANAGER;
     multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9);
 
@@ -95,8 +95,8 @@ else
     if([lseek] == MAX_FILE_SIZE) then
         multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
         R1 = RELEASE_INODE;
-        R2 = inodeInd;
         R3 = pid;
+        R2 = inodeInd;
         call RESOURCE_MANAGER;
         multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
 
@@ -116,8 +116,8 @@ else
         if(R0 == -1) then
             multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
             R1 = RELEASE_INODE;
-            R2 = inodeInd;
             R3 = pid;
+            R2 = inodeInd;
             call RESOURCE_MANAGER;
             multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
 
@@ -154,8 +154,8 @@ else
 
     multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11,R12);
     R1 = RELEASE_INODE;
-    R2 = inodeInd;
     R3 = pid;
+    R2 = inodeInd;
     call RESOURCE_MANAGER;
     multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11,R12);
 

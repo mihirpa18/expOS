@@ -18,7 +18,6 @@ int main(){
                 num = num + 1;
             endwhile;
             
-            breakpoint;
 
             while(1 == 1) do
                 temp = exposcall("Seek",fd,-1);

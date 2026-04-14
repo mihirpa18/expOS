@@ -191,7 +191,6 @@ if (syscall == INT_DELETE) then
     endif;
 endif;
 
-breakpoint;
 
 [mode] = 0;
 SP = userSP;
