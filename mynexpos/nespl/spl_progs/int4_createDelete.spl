@@ -1,0 +1,221 @@
+alias userSP R1;
+userSP = SP;
+
+alias pid R13;
+pid = [SYSTEM_STATUS_TABLE + CORE*5 + 1];
+
+[PROCESS_TABLE + (pid*16) + 13] = SP;
+SP = [PROCESS_TABLE + (pid*16) + 11]*512 - 1;
+
+multipush(R1,R13);
+R1 = ACQUIRE_KERN_LOCK; //1
+call ACCESS_CONTROL;
+multipop(R1,R13);
+
+alias retAddr R11;
+retAddr = [PTBR + 2*((userSP - 1)/512)] * 512 + (userSP - 1) % 512;
+
+alias mode R12;
+mode = PROCESS_TABLE + (pid*16) + 9;
+
+alias syscall R2;
+syscall = [[PTBR + 2*((userSP - 5)/512)] * 512 + (userSP - 5) % 512];
+
+alias fileName R3;
+fileName = [[PTBR + 2*((userSP - 4)/512)] * 512 + (userSP - 4) % 512];
+
+alias userId R7;
+userId = [PROCESS_TABLE + pid*16 + 3];
+
+[mode] = syscall;
+
+//create file -> syscall number = 1
+if(syscall == INT_CREATE) then
+    alias i R4;
+    i=0;
+    //if file is already present , then simply return 0
+    while(i<MAX_FILE_NUM) do
+        if([INODE_TABLE + i*16 + 1] == fileName) then
+            [retAddr] = 0;
+            SP = userSP;
+            [mode] = 0;
+
+            R1 = RELEASE_LOCK;
+            R2 = KERN_LOCK;
+            call ACCESS_CONTROL;
+
+            ireturn;
+        endif;
+        i=i+1;
+    endwhile;
+
+    i=0;
+    alias ind R5;
+    ind=-1;
+    while(i < MAX_FILE_NUM) do
+        if([INODE_TABLE + i*16 + 1] == -1) then
+            ind=i;
+            break;
+        endif;
+        i=i+1;
+    endwhile;
+
+    //if no free entry in inode table -> return -1
+    if(ind == -1) then
+        [retAddr] = -1;
+    else
+        //set inode entries
+        alias inode_table R6;
+        inode_table = INODE_TABLE + ind*16;
+        alias permission R8;
+        permission = [[PTBR + 2*((userSP - 3)/512)] * 512 + (userSP - 3) % 512];
+
+        [inode_table + 0] = DATA;           //type
+        [inode_table + 1] = fileName;       //fileName
+        [inode_table + 2] = 0;              //size
+        [inode_table + 3] = userId;           //user id
+        [inode_table + 4] = permission;     //permission
+        //In the Inode Table entry, set the block numbers to -1.  /* No disk blocks are allocated to the file */
+        [inode_table + 8] = -1; 
+        [inode_table + 9] = -1; 
+        [inode_table + 10] = -1; 
+        [inode_table + 11] = -1; 
+
+        //set root file
+        alias root_file R9;
+        root_file = ROOT_FILE + ind*8;
+        [root_file + 0] = fileName;
+        [root_file + 1] = 0;
+        [root_file + 2] = DATA;
+        [root_file + 3] = [USER_TABLE + userId*2];
+        [root_file + 4] = permission;
+
+        //return 0
+        [retAddr] = 0;
+    endif;
+endif;
+
+//delete file -> 4
+if (syscall == INT_DELETE) then
+    alias i R4;
+    i=0;
+    alias ind R5;
+    ind = -1;
+    //find file
+    while(i<MAX_FILE_NUM) do
+        if([INODE_TABLE + i*16 + 1] == fileName) then
+            ind = i;
+            break;
+        endif;
+        i=i+1;
+    endwhile;
+    
+    if(ind == -1) then
+        [retAddr] = 0;
+        [mode] = 0;
+        SP = userSP;
+
+        R1 = RELEASE_LOCK;
+        R2 = KERN_LOCK;
+        call ACCESS_CONTROL;
+
+        ireturn;
+    endif;
+
+    alias inode_table R6;
+    inode_table = INODE_TABLE + ind*16;
+
+    alias root_file R9;
+    root_file = ROOT_FILE + ind*8;
+
+    if([inode_table + 0] != DATA) then
+        [retAddr] = -1;
+    else
+        if([inode_table + 4] == EXCLUSIVE && (userId != 1 && [inode_table + 3] != userId)) then
+            [retAddr] = -1;
+        else
+            //acquire_inode
+            multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R11,R12,R13);
+            R1 = ACQUIRE_INODE;   //4
+            R2 = ind;
+            R3 = pid;
+            call RESOURCE_MANAGER;
+            multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R11,R12,R13);
+
+            //check if file is open -> if open return -2 by releasing inode
+            if([FILE_STATUS_TABLE + ind*4 + 1] != -1) then
+                multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R11,R12,R13);
+                R1 = RELEASE_INODE;   //5
+                R2 = ind;
+                R3 = pid;
+                call RESOURCE_MANAGER;
+                multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R11,R12,R13);
+
+                [retAddr] = -2;
+                [mode] = 0;
+                SP = userSP;
+
+                R1 = RELEASE_LOCK;
+                R2 = KERN_LOCK;
+                call ACCESS_CONTROL;
+
+                ireturn;
+            endif;
+
+            //If the disk block is loaded into a buffer, and the DIRTY BIT is set, reset the dirty bit. and release block if valid
+            i=8;
+            while(i<12) do
+                if([inode_table + i] != -1) then
+                    alias j R10;
+                    j=0;
+                    while(j<4) do
+                        if([BUFFER_TABLE + j*4 + 0] == [inode_table + i] && [BUFFER_TABLE + j*4 + 1] == 1) then
+                            [BUFFER_TABLE + j*4 + 1] = 0;
+                        endif;
+                        j= j+1;
+                    endwhile;
+                    //release block
+                    multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R11,R12,R13);
+                    R1 = RELEASE_BLOCK;  //4
+                    R2 = [inode_table + i];
+                    R3 = pid;
+                    call MEMORY_MANAGER;
+                    multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R11,R12,R13);
+                endif;
+                i=i+1;
+            endwhile;
+
+            //invalidate inode table of the file
+            i = 0;
+            while(i<16) do
+                [inode_table + i] = -1;
+                i= i+1;
+            endwhile;
+
+            i=0;
+            while(i<8) do
+                [root_file + i] = -1;
+                i = i+1;
+            endwhile;
+
+            //release inode
+            multipush(R1,R2,R3,R4,R5,R6,R7,R8,R9,R11,R12,R13);
+            R1 = RELEASE_INODE;   //5
+            R2 = ind;
+            R3 = pid;
+            call RESOURCE_MANAGER;
+            multipop(R1,R2,R3,R4,R5,R6,R7,R8,R9,R11,R12,R13);
+
+            [retAddr] = 0;
+        endif;
+    endif;
+endif;
+
+R1 = RELEASE_LOCK;
+R2 = KERN_LOCK;
+call ACCESS_CONTROL;
+
+[mode] = 0;
+SP = userSP;
+ireturn;
+

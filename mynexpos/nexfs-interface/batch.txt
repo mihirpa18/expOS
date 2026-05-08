@@ -1,0 +1,54 @@
+fdisk
+load --os=primary ../nespl/spl_progs/osStartup.xsm
+load --os=secondary ../nespl/spl_progs/secondary_boot_module.xsm
+load --library ../expl/library.lib
+load --init ../expl/samples/stage-26/login.xsm
+load --exhandler ../nespl/spl_progs/exception_handler.xsm
+load --int=timer ../nespl/spl_progs/timer_interrupt.xsm
+load --int=console ../nespl/spl_progs/console_interrupt.xsm
+load --int=disk ../nespl/spl_progs/disk_interrupt.xsm
+load --int=4 ../nespl/spl_progs/int4_createDelete.xsm
+load --int=5 ../nespl/spl_progs/int5_openCloseSeek.xsm
+load --int=6 ../nespl/spl_progs/int6_read.xsm
+load --int=7 ../nespl/spl_progs/int7_write.xsm
+load --int=8 ../nespl/spl_progs/int8_fork.xsm
+load --int=9 ../nespl/spl_progs/int9_exec.xsm
+load --int=10 ../nespl/spl_progs/int10_exit.xsm
+load --int=11 ../nespl/spl_progs/int11_access.xsm
+load --int=12 ../nespl/spl_progs/int12_logout.xsm
+load --int=13 ../nespl/spl_progs/int13_semGetRel.xsm
+load --int=14 ../nespl/spl_progs/int14_semlockUnlock.xsm
+load --int=15 ../nespl/spl_progs/int15_shutdown.xsm
+load --int=16 ../nespl/spl_progs/int16_usermgmt.xsm
+load --int=17 ../nespl/spl_progs/int17_login.xsm
+load --idle ../expl/samples/idle.xsm
+load --module 0 ../nespl/spl_progs/resourceManager_module-0.xsm
+load --module 1 ../nespl/spl_progs/processManager_module-1.xsm
+load --module 2 ../nespl/spl_progs/memoryManager_module-2.xsm
+load --module 3 ../nespl/spl_progs/fileManager_module-3.xsm
+load --module 4 ../nespl/spl_progs/deviceManager_module-4.xsm
+load --module 5 ../nespl/spl_progs/scheduler_module-5.xsm
+load --module 6 ../nespl/spl_progs/pager_module-6.xsm
+load --module 7 ../nespl/spl_progs/boot_module-7.xsm
+load --module 8 ../nespl/spl_progs/access_control_module-8.xsm
+load --exec ../expl/samples/stage-23/create.xsm 
+load --exec ../expl/samples/stage-23/delete.xsm 
+load --exec ../expl/samples/stage-25/cat.xsm 
+load --exec ../expl/samples/stage-25/cp.xsm 
+load --exec ../expl/samples/stage-25/ls.xsm 
+load --exec ../expl/samples/stage-25/rm.xsm 
+load --exec ../expl/samples/stage-26/ru.xsm 
+load --exec ../expl/samples/stage-26/lu.xsm 
+load --exec ../expl/samples/stage-27/fork4.xsm 
+load --exec ../expl/samples/stage-27/assg2.xsm 
+load --exec ../expl/samples/stage-27/assg3.xsm 
+load --exec ../expl/samples/stage-27/assg4.xsm 
+load --exec ../expl/samples/stage-27/pgm1.xsm 
+load --exec ../expl/samples/stage-27/pgm2.xsm 
+load --exec ../expl/samples/stage-27/merge.xsm 
+load --exec ../expl/samples/stage-27/m_merge.xsm 
+load --exec ../expl/samples/stage-27/m_sort.xsm 
+load --exec ../expl/samples/stage-27/m_store.xsm 
+load --exec ../expl/samples/pid.xsm
+load --shell ../expl/samples/shell.xsm
+exit

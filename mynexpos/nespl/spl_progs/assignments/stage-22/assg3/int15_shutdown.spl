@@ -1,0 +1,14 @@
+//number of kernal switches
+[SYSTEM_STATUS_TABLE + 27] = [SYSTEM_STATUS_TABLE + 27] + 1;
+
+alias taskManager R0;
+taskManager = SYSTEM_STATUS_TABLE + 24;
+print "contextSwitches:-";
+print [taskManager];
+print "maxMemUsage:-";
+print [taskManager + 1];
+print "diskAccesses:-";
+print [taskManager + 2];
+print "KernalSwitches:-";
+print [taskManager + 3];
+halt;

@@ -1,0 +1,249 @@
+alias funNum R1;
+
+//breakpoint;
+
+//get pcb entry
+if(funNum==1) then
+    //breakpoint;
+    alias i R2;
+    i=0;
+    while(i<MAX_PROC_NUM) do
+        if([PROCESS_TABLE + (i*16) + 4]==TERMINATED) then
+            R0=i;
+            [PROCESS_TABLE + (i*16) +4]=ALLOCATED;
+            [PROCESS_TABLE + (i*16) +1]=i;
+            [PROCESS_TABLE + (i*16) +14]=PAGE_TABLE_BASE+(i*20);
+            [PROCESS_TABLE + (i*16) +15]=10;
+            break;
+        endif;
+        i=i+1;
+    endwhile;
+
+    if(i==MAX_PROC_NUM) then
+        R0=-1;
+    endif;
+
+    return;
+endif;
+
+//FREE userArea page
+if(funNum==2) then
+    alias currPID R2;
+
+    alias userAreaPage R3;
+    userAreaPage=[PROCESS_TABLE+(currPID*16) +11];
+
+    //print userAreaPage;
+
+    //If the resource is valid and is semaphore -> release semaphore
+    alias resource_table R4;
+    resource_table = userAreaPage*512 + RESOURCE_TABLE_OFFSET;
+    alias i R5;
+    i=0;
+    while(i<16) do 
+        if([resource_table + i] == SEMAPHORE) then
+            multipush(R1,R2,R3,R4,R5);
+            R1 = RELEASE_SEMAPHORE;
+            R2 = [resource_table + i + 1];
+            R3 = [SYSTEM_STATUS_TABLE + CORE*5 + 1];
+            call RESOURCE_MANAGER;
+            multipop(R1,R2,R3,R4,R5);
+        endif;
+        if([resource_table + i] == FILE) then
+            multipush(R1,R2,R3,R4,R5);
+            R1 = CLOSE;
+            R2 = [resource_table + i + 1];
+            R3 = [SYSTEM_STATUS_TABLE + CORE*5 + 1];
+            call FILE_MANAGER;
+            multipop(R1,R2,R3,R4,R5);
+        endif;
+        i = i + 2;
+    endwhile;
+
+    //free user area page
+    multipush(R1,R2,R3,R4,R5);
+    R1=2;
+    R2=userAreaPage;
+    call MEMORY_MANAGER;
+    multipop(R1,R2,R3,R4,R5);
+
+    return;
+endif;
+
+//EXIT PROCESS
+if(funNum==3) then 
+    alias currPID R2;
+
+    //breakpoint;
+    
+    //if not from exec signal the process which are waiting and also create orphan process
+    if([PROCESS_TABLE + currPID*16 +9] != 9) then   
+        alias i R3;
+        i=0;
+        
+        while(i<MAX_PROC_NUM) do
+            alias proc_table R4;
+            proc_table = PROCESS_TABLE + (i*16);
+            
+            if(([proc_table + 4] == WAIT_PROCESS) && [proc_table + 5] == currPID) then
+                [proc_table + 4] = READY;
+            endif;
+
+            if(([proc_table + 2] == currPID)) then
+                [proc_table + 2] = -1;
+            endif; 
+
+            i=i+1;
+        endwhile;
+    endif;
+
+    //invoke free page table 
+    multipush(R1,R2);
+    R1=FREE_PAGE_TABLE;
+    R2=currPID;
+    call PROCESS_MANAGER;
+    multipop(R1,R2);
+
+    //invoke free userAreaPage
+    multipush(R1,R2);
+    R1=FREE_USER_AREA_PAGE;
+    R2=currPID;
+    call PROCESS_MANAGER;
+    multipop(R1,R2);
+
+
+    //set state as terminated for the process
+    [PROCESS_TABLE + (currPID*16) +4]=TERMINATED;
+
+    return;
+endif;
+
+//FREE_PAGE_TABLE
+if(funNum == 4) then
+    alias currPID R2;
+
+    // Calculate the actual page table base for the given PID
+    alias targetPTBR R5;
+    targetPTBR = PAGE_TABLE_BASE + (currPID * 20);
+
+    //INVALIDATE LIBRARY entries using targetPTBR
+    [targetPTBR + 0]=-1;
+    [targetPTBR + 1]="0000";
+    [targetPTBR + 2]=-1;
+    [targetPTBR + 3]="0000";
+
+    //for each valid page , release page using release page in MEMORY_MANAGER
+    alias i R3;
+    i=4;
+    while(i<20) do
+        if([targetPTBR + i]!=-1) then
+
+            //call release page (Added R5 to multipush/pop to protect our pointer)
+            multipush(R1,R2,R3,R5);
+            R1=2;
+            R2=[targetPTBR + i];
+            call MEMORY_MANAGER;
+            multipop(R1,R2,R3,R5);
+
+            //invalidate entry
+            [targetPTBR + i]=-1;
+            [targetPTBR + (i+1)]="0000";
+        endif;
+        i=i+2;
+    endwhile;
+
+    //invalidate disk map table 
+    //if there is any heap or stack valid page then call release disk 
+    //heap
+    i=2;
+    while(i<4) do  
+        alias block R4;
+        block=[DISK_MAP_TABLE+(currPID*10)+i]; 
+        if(block!=-1) then
+            multipush(R1,R2,R3,R4);
+            R1=4;
+            R3=currPID;
+            R2=block;
+            call MEMORY_MANAGER;
+            multipop(R1,R2,R3,R4);
+        endif;
+        i=i+1;
+    endwhile;
+    //stack
+    i=8;
+    while(i<10) do  
+        alias block R4;
+        block=[DISK_MAP_TABLE+(currPID*10)+i]; 
+        if(block!=-1) then
+            multipush(R1,R2,R3,R4);
+            R1=4;
+            R3=currPID;
+            R2=block;
+            call MEMORY_MANAGER;
+            multipop(R1,R2,R3,R4);
+        endif;
+        i=i+1;
+    endwhile;
+
+    //invalidate disk map table
+    i=0;
+    while(i<10) do
+        [DISK_MAP_TABLE+(currPID*10)+i]=-1;
+        i=i+1;
+    endwhile;
+
+    //breakpoint;
+    //print "4 done";
+
+    return ;
+endif;
+
+//kill all ->5
+if(funNum == KILL_ALL) then
+    alias currPID R2;
+    
+    //acquire lock on all files
+    alias i R4;
+    i = 0;
+    while(i<MAX_FILE_NUM) do
+        if([INODE_TABLE + i*16 + 1] != -1) then 
+            multipush(R1,R2,R4);
+            R1 = ACQUIRE_INODE;
+            R3 = currPID;
+            R2 = i;
+            call RESOURCE_MANAGER;
+            multipop(R1,R2,R4);
+        endif;
+        i = i+1;
+    endwhile;
+
+    //terminates all the processes except IDLE, INIT , idle2 and the process with given PID.
+    i = 2;
+    while(i < (MAX_PROC_NUM - 2)) do
+        if([PROCESS_TABLE + i*16 + 1] != currPID && [PROCESS_TABLE + 16*i + 4] != TERMINATED ) then
+            multipush(R1,R2,R4);
+            R1 = EXIT_PROCESS;
+            R2 = i;
+            call PROCESS_MANAGER;
+            multipop(R1,R2,R4);
+        endif;
+        i = i+1;
+    endwhile;
+
+    i = 0;
+    while(i<MAX_FILE_NUM) do
+        if([INODE_TABLE + i*16 + 1] != -1) then 
+            multipush(R1,R2,R4);
+            R1 = RELEASE_INODE;
+            R3 = currPID;
+            R2 = i;
+            call RESOURCE_MANAGER;
+            multipop(R1,R2,R4);
+        endif;
+        i = i+1;
+    endwhile;
+
+    return;
+endif;
+
+

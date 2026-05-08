@@ -1,0 +1,52 @@
+//curr pid
+alias currPID R0;
+currPID=[SYSTEM_STATUS_TABLE+1];
+
+//push BP to top of curr stack
+multipush(BP);
+
+//count number of context switches
+[SYSTEM_STATUS_TABLE + 24]=[SYSTEM_STATUS_TABLE + 24]+1;
+
+[PROCESS_TABLE+(currPID*16)+12]=SP%512;
+[PROCESS_TABLE+(currPID*16)+14]=PTBR;
+[PROCESS_TABLE+(currPID*16)+15]=PTLR;
+
+alias i R1;
+i=currPID+1;
+alias newPid R2;
+
+while(i<MAX_PROC_NUM && ([PROCESS_TABLE+(i*16)+4]!=READY && [PROCESS_TABLE+(i*16)+4]!=CREATED)) do
+    i=i+1;
+endwhile;
+
+if(i==MAX_PROC_NUM) then
+    newPid=0;
+else
+    newPid=i;
+endif;
+
+alias new_process_table R3;
+new_process_table=PROCESS_TABLE+(newPid*16);
+
+SP=[(new_process_table+11)]*512+[new_process_table+12];
+PTBR=[new_process_table+14];
+PTLR=[new_process_table+15];
+
+[SYSTEM_STATUS_TABLE+1]=newPid;
+
+
+if([new_process_table+4]==CREATED) then
+    //breakpoint;
+    BP=[[new_process_table+11]*512];
+    SP=[new_process_table+13];
+    [new_process_table+4]=RUNNING;
+    [new_process_table+9]=0;
+    ireturn;
+endif;
+
+[new_process_table+4]=RUNNING;
+
+multipop(BP);
+
+return;

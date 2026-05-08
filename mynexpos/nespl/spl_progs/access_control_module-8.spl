@@ -1,0 +1,36 @@
+alias funNum R1;
+
+if(funNum == ACQUIRE_KERN_LOCK) then
+    if(CORE == SECONDARY_CORE) then
+        // if PAGING_STATUS or LOGOUT_STATUS is on
+        if([SYSTEM_STATUS_TABLE + 5] != 0 || [SYSTEM_STATUS_TABLE + 7] != 0) then   
+            [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + CORE*5 + 1]*16) + 4] = READY;
+            
+            call SCHEDULER;
+        endif;
+    endif;
+
+    while(tsl(KERN_LOCK) == 1) do
+        continue;
+    endwhile;
+endif;
+
+if(funNum == ACQUIRE_SCHED_LOCK) then
+    while(tsl(SCHED_LOCK) == 1) do
+        continue;
+    endwhile;
+endif;
+
+if(funNum == ACQUIRE_GLOCK) then
+    while(tsl(GLOCK) == 1) do
+        continue;
+    endwhile;
+endif;
+
+if(funNum == RELEASE_LOCK) then
+    alias lockAddr R2;
+    [lockAddr] =0;
+endif;
+
+return;
+
