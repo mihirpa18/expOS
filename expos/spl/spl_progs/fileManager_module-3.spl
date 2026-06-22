@@ -1,0 +1,270 @@
+alias funNum R1;
+alias pid R6;
+pid = [SYSTEM_STATUS_TABLE + 1];
+
+//buffer write -> 1
+if(funNum == BUFFERED_WRITE) then
+    alias blockNum R2;
+    alias blockOffset R3;
+    alias word R4;
+
+    alias buffNum R5;
+    buffNum = blockNum % 4;
+
+    multipush(R1,R2,R3,R4,R5,R6);
+    R1 = ACQUIRE_BUFFER;
+    R2 = buffNum;
+    R3 = pid;
+    call RESOURCE_MANAGER;
+    multipop(R1,R2,R3,R4,R5,R6);
+
+    alias buffer_table R7;
+    buffer_table = BUFFER_TABLE + buffNum*4;
+
+    //if buffer contains different disk block
+    if([buffer_table] != blockNum) then
+        
+        if([buffer_table + 1] == 1) then
+            //write back contents of buffer to disk
+            multipush(R1,R2,R3,R4,R5,R6,R7);
+            R1 = DISK_STORE;
+            R2 = pid;
+            R3 = BUFFER_BASE + buffNum;   //BUFFER_BASE = 71 (page num)
+            R4 = [buffer_table];
+            call DEVICE_MANAGER;
+            multipop(R1,R2,R3,R4,R5,R6,R7);
+
+            [buffer_table + 1] = 0;
+        endif;
+
+        //disk load
+        multipush(R1,R2,R3,R4,R5,R6,R7);
+        R1 = DISK_LOAD;
+        R4 = blockNum;
+        R3 = BUFFER_BASE + buffNum;   //BUFFER_BASE = 71 (page num)
+        R2 = pid;
+        call DEVICE_MANAGER;
+        multipop(R1,R2,R3,R4,R5,R6,R7);
+
+        //set new block in buffer table
+        [buffer_table] = blockNum;
+    endif;
+
+    [(BUFFER_BASE + buffNum)*512 + blockOffset] = word;
+
+    [buffer_table + 1] = 1;   //mark dirty
+
+    //release buffer
+    multipush(R1,R2,R3,R4,R5,R6);
+    R1 = RELEASE_BUFFER;  //2
+    R2 = buffNum;
+    R3 = pid;
+    call RESOURCE_MANAGER;
+    multipop(R1,R2,R3,R4,R5,R6);
+
+    return;
+endif;
+
+// buffer read -> 2
+if(funNum == BUFFERED_READ) then
+    //disk block num , offset , memory address are the arguments
+    alias blockNum R2;
+    alias blockOffset R3;
+    alias wordAddr R4;
+
+    alias buffNum R5;
+    buffNum = blockNum % 4;
+
+    //aquire buffer
+    multipush(R1,R2,R3,R4,R5,R6);
+    R1 = ACQUIRE_BUFFER;  //1
+    R2 = buffNum;
+    R3 = pid;
+    call RESOURCE_MANAGER;
+    multipop(R1,R2,R3,R4,R5,R6);
+
+    alias buffer_table R7;
+    buffer_table = BUFFER_TABLE + buffNum*4;
+
+    //if buffer contains different disk block
+    if([buffer_table] != blockNum) then
+        if([buffer_table + 1] == 1) then
+            //write back contents of buffer to disk
+            multipush(R1,R2,R3,R4,R5,R6,R7);
+            R1 = DISK_STORE;
+            R2 = pid;
+            R3 = BUFFER_BASE + buffNum;   //BUFFER_BASE = 71 (page num)
+            R4 = [buffer_table];
+            call DEVICE_MANAGER;
+            multipop(R1,R2,R3,R4,R5,R6,R7);
+
+            [buffer_table + 1] = 0;
+        endif;
+
+
+        //disk load
+        multipush(R1,R2,R3,R4,R5,R6,R7);
+        R1 = DISK_LOAD;
+        R4 = blockNum;
+        R3 = BUFFER_BASE + buffNum;   //BUFFER_BASE = 71 (page num)
+        R2 = pid;
+        call DEVICE_MANAGER;
+        multipop(R1,R2,R3,R4,R5,R6,R7);
+
+        //set new block in buffer table
+        [buffer_table] = blockNum;
+    endif;
+
+    [wordAddr] = [(BUFFER_BASE + buffNum)*512 + blockOffset];
+
+    //release buffer
+    multipush(R1,R2,R3,R4,R5,R6);
+    R1 = RELEASE_BUFFER;  //1
+    R2 = buffNum;
+    R3 = pid;
+    call RESOURCE_MANAGER;
+    multipop(R1,R2,R3,R4,R5,R6);
+
+    return;
+endif;
+
+//open file -> 3
+if(funNum == OPEN) then
+    alias fileName R2;
+
+    alias i R3;
+    i = 0;
+    //find inode index
+    alias inodeInd R4; 
+    inodeInd = -1;
+    while(i<MAX_FILE_NUM) do
+        if([INODE_TABLE + i*16 + 1] == fileName) then
+            inodeInd = i;
+            break;
+        endif;
+        i = i+1;
+    endwhile;
+
+    if(inodeInd == -1) then
+        R0 = -1;
+        return;
+    endif;
+
+    //call aquire inode to lock
+    multipush(R1,R2,R3,R4,R6);
+    R1 = ACQUIRE_INODE;
+    R2 = inodeInd;
+    R3 = pid;
+    call RESOURCE_MANAGER;
+    multipop(R1,R2,R3,R4,R6);
+    
+    //if locking fails -> no entry in inode table 
+    if(R0 == -1) then
+        return;
+    endif;
+
+    alias inode_table R9;
+    inode_table = INODE_TABLE + inodeInd*16;
+    //file is not root or data file -> return -1;
+    if([inode_table] == EXEC) then
+        multipush(R1,R2);
+        R1 = RELEASE_INODE;
+        R2 = inodeInd;
+        R3 = pid;
+        call RESOURCE_MANAGER;
+        multipop(R1,R2);
+
+        R0 = -1;    //RETURN -1;
+        return;
+    endif;
+
+    i = 0;
+    alias openFileInd R5;
+    openFileInd = -1;
+    while(i<MAX_OPENFILE_NUM) do
+        if([OPEN_FILE_TABLE + i*4] == -1) then
+            openFileInd = i;
+            break;
+        endif;
+        i = i+1;
+    endwhile;
+
+    if(openFileInd == -1) then
+        multipush(R1,R2);
+        R1 = RELEASE_INODE;
+        R2 = inodeInd;
+        R3 = pid;
+        call RESOURCE_MANAGER;
+        multipop(R1,R2);
+
+        R0 = -2;    //RETURN -2;
+        return;
+    endif;
+
+    alias openFile_table R7;
+    openFile_table = OPEN_FILE_TABLE + openFileInd*4;
+
+    alias fileStatus_table R8;
+    fileStatus_table = FILE_STATUS_TABLE + inodeInd*4;
+
+    //if root file
+    if([inode_table + 1] == "root") then
+        [openFile_table] = INODE_ROOT;
+    else
+        //if the File Open Count is -1, set it to 1. Otherwise, increment the File Open Count.
+        if([fileStatus_table + 1] == -1) then
+            [fileStatus_table + 1] = 1;
+        else
+            [fileStatus_table + 1] = [fileStatus_table + 1] + 1;
+        endif;
+
+        //set inode index of open file table 
+        [openFile_table] = inodeInd;
+    endif;
+
+    [openFile_table + 1] = 1;    //open instance count
+    [openFile_table + 2] = 0;    //lseek
+
+    multipush(R1,R2,R3,R4,R5,R6);
+    R1 = RELEASE_INODE;
+    R2 = inodeInd;
+    R3 = pid;
+    call RESOURCE_MANAGER;
+    multipop(R1,R2,R3,R4,R5,R6);
+
+    R0 = openFileInd;
+    return;
+endif;
+
+//close -4
+if(funNum == CLOSE) then
+    alias openFileInd R2;
+    
+    alias openFile_table R7;
+    openFile_table = OPEN_FILE_TABLE + openFileInd*4;
+
+    alias inodeInd R3;
+    inodeInd = [openFile_table];
+    
+    alias fileStatus_table R8;
+    fileStatus_table = FILE_STATUS_TABLE + inodeInd*4;
+
+    [openFile_table + 1] = [openFile_table + 1] - 1;
+
+    if([openFile_table + 1] == 0) then
+        [openFile_table] = -1;
+        [openFile_table + 1] = -1;
+        [openFile_table + 2] = -1;
+
+        if(inodeInd != INODE_ROOT) then
+            [fileStatus_table + 1] = [fileStatus_table + 1] - 1;
+            if([fileStatus_table + 1] == 0) then
+                [fileStatus_table + 1] = -1;
+            endif;
+        endif;
+    endif;
+
+    return;
+endif;
+
+

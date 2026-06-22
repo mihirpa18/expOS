@@ -1,0 +1,65 @@
+//curr pid
+alias currPID R0;
+currPID=[SYSTEM_STATUS_TABLE+1];
+
+//push BP to top of curr stack
+multipush(BP);
+
+[PROCESS_TABLE+(currPID*16)+12]=SP%512;
+[PROCESS_TABLE+(currPID*16)+14]=PTBR;
+[PROCESS_TABLE+(currPID*16)+15]=PTLR;
+
+alias i R1;
+alias newPid R2;
+newPid = 0;
+
+//paging is going
+if([SYSTEM_STATUS_TABLE + 5] != 0) then
+    if([PROCESS_TABLE + SWAPPER_DAEMON*16 + 4] == WAIT_DISK) then
+        newPid = 0;
+    else
+        newPid = SWAPPER_DAEMON;
+    endif;
+else 
+    i = (currPID + 1) % 16;
+    while(i != currPID) do
+        if(i == 0) then
+            i = (i + 1) % 16;
+            continue;
+        endif;
+
+        if([PROCESS_TABLE + (i*16) + 4] == CREATED || [PROCESS_TABLE + (i*16) + 4] == READY) then
+            if([PROCESS_TABLE + (i*16) + 6] == 0) then
+                newPid=i;
+                break;
+            endif;  
+        endif;
+
+        i = (i + 1) % 16;
+    endwhile;
+endif;
+
+
+alias new_process_table R3;
+new_process_table=PROCESS_TABLE+(newPid*16);
+
+SP=[(new_process_table+11)]*512+[new_process_table+12];
+PTBR=[new_process_table+14];
+PTLR=[new_process_table+15];
+
+[SYSTEM_STATUS_TABLE+1]=newPid;
+
+
+if([new_process_table+4]==CREATED) then
+    BP=[[new_process_table+11]*512];
+    SP=[new_process_table+13];
+    [new_process_table+4]=RUNNING;
+    [new_process_table+9]=0;
+    ireturn;
+endif;
+
+[new_process_table+4]=RUNNING;
+
+multipop(BP);
+
+return;

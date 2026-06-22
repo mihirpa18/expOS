@@ -1,0 +1,39 @@
+//breakpoint;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + CORE*5 + 1]*16) + 13]=SP;
+SP=[PROCESS_TABLE+([SYSTEM_STATUS_TABLE + CORE*5 + 1]*16)+11]*512-1;
+
+backup;
+
+R1 = ACQUIRE_KERN_LOCK;
+call ACCESS_CONTROL;
+
+//pid of the process which locked terminal
+alias reqPID R0;
+reqPID=[TERMINAL_STATUS_TABLE+1];
+
+//breakpoint;
+
+//STORE INPUT FROM P0 TO INPUT BUFFER IN PROCESS TABLE
+alias process_table_entry R1;
+process_table_entry=PROCESS_TABLE+(reqPID*16);
+[process_table_entry+8]=P0;
+
+//breakpoint;
+
+//RELEASE TERMINAL
+multipush(R0,R1);
+R1=9;
+R2=reqPID;
+call RESOURCE_MANAGER;
+multipop(R0,R1);
+
+R1 = RELEASE_LOCK;
+R2 = KERN_LOCK;
+call ACCESS_CONTROL;
+
+//RESTORE USER CONTEXT;
+restore;
+
+SP=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + CORE*5 + 1]*16) + 13];
+
+ireturn;

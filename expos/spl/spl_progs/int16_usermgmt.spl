@@ -1,0 +1,235 @@
+alias userSP R1;
+userSP = SP;
+
+alias pid R2;
+pid = [SYSTEM_STATUS_TABLE + 1];
+
+alias retAddr R3;
+retAddr = [PTBR + 2*((userSP - 1)/512)] * 512 + (userSP - 1) % 512;
+
+alias syscall R4;
+syscall = [[PTBR + 2*((userSP - 5)/512)] * 512 + (userSP - 5) % 512];
+
+alias mode R5;
+mode = PROCESS_TABLE + (pid*16) + 9;
+
+[mode] = syscall;   //SET MODE FLAG TO SYS CALL NUM
+
+//CHANGE FROM USER STACK TO KERNAL STACK
+[PROCESS_TABLE + (pid*16) + 13] = SP;
+SP = [PROCESS_TABLE + (pid*16) + 11] * 512 - 1;  
+
+//sys call 22 -> new user
+//*arg -> user name and password
+//*return values -> 
+//  0	Success
+// -1	user already exists
+// -2	permission denied
+// -3   Number of users has reached the system limit
+if(syscall == INT_NEWUSR) then
+    //if curr user if not root or curr process is not shell -> return -2
+    if(([SYSTEM_STATUS_TABLE + 0] != ROOT) || (pid != SHELL_PROCESS)) then
+        [retAddr] = -2;
+    else
+        alias i R6;
+        i = 2;
+
+        alias userName R8;
+        userName = [[PTBR + 2*((userSP - 4)/512)] * 512 + (userSP - 4) % 512];
+        alias password R9;
+        password = [[PTBR + 2*((userSP - 3)/512)] * 512 + (userSP - 3) % 512];
+
+        alias userExists R10;
+        userExists = 0;
+        alias freeSlot R7; 
+        freeSlot = -1;
+
+        while(i < MAX_USER_NUM) do
+            if([USER_TABLE + i*2] == userName) then
+                userExists = 1;
+                break;
+            endif;
+            if([USER_TABLE + i*2] == -1 && freeSlot == -1) then
+                freeSlot = i; 
+            endif;
+            i = i+1;
+        endwhile;
+
+        if(userExists == 1) then
+            [retAddr] = -1; // User already exists
+        else
+            if(freeSlot == -1) then
+                [retAddr] = -3; // No free slots
+            else
+                encrypt password;
+                [USER_TABLE + freeSlot*2] = userName;
+                [USER_TABLE + freeSlot*2 + 1] = password;
+                [retAddr] = 0;
+            endif;
+        endif;
+    endif;
+endif;
+
+//syscall 23 -> remove user
+//*arg -> user name 
+//*return values -> 
+//  0	Success
+// -1	user does not exists
+// -2	permission denied
+// -3   Undeleted files exist for the user
+if(syscall == INT_REMUSR) then
+    if(([SYSTEM_STATUS_TABLE + 0] != ROOT) || (pid != SHELL_PROCESS)) then
+        [retAddr] = -2;
+    else
+        alias userName R6;
+        userName = [[PTBR + 2*((userSP - 4)/512)] * 512 + (userSP - 4) % 512];
+
+        if(userName == "root" || userName == "kernel") then
+            [retAddr] = -2;
+        else
+            alias i R7;
+            i = 0;
+            alias userId R8;
+            userId = -1;
+
+            while(i < MAX_USER_NUM) do
+                if([USER_TABLE + i*2] == userName) then
+                    userId = i;
+                    break;
+                endif;
+                i = i+1;
+            endwhile;
+
+            if(userId == -1) then
+                [retAddr] = -1;
+                [mode] = 0;
+                SP = userSP;
+                ireturn;
+            endif;
+
+            //if undeleted files exist -> ret -3 
+            i = 0;
+            while(i < MAX_FILE_NUM) do
+                if([ROOT_FILE + i*8 + 3] == userName) then
+                    [retAddr] = -3;
+                    [mode] = 0;
+                    SP = userSP;
+                    ireturn;
+                endif;
+                i = i+1;
+            endwhile;
+
+            //invalidate user table entry
+            [USER_TABLE + userId*2] = -1;
+            [USER_TABLE + userId*2 + 1] = -1;
+
+            [retAddr] = 0;
+        endif;
+    endif;
+endif;
+
+//set password -> syscall 24
+//*arg -> user name and new password
+//*return values -> 
+//  0	Success
+// -1	unauthorized attempt to change password
+// -2	user DNE
+if(syscall == INT_SETPWD) then
+    if((pid != SHELL_PROCESS)) then
+        [retAddr] = -1;
+    else    
+        alias userName R6;
+        userName = [[PTBR + 2*((userSP - 4)/512)] * 512 + (userSP - 4) % 512];
+        alias password R7;
+        password = [[PTBR + 2*((userSP - 3)/512)] * 512 + (userSP - 3) % 512];
+
+        alias i R8;
+        i = 0;
+        alias userId R9;
+        userId = -1;
+        while(i < MAX_USER_NUM) do
+            if([USER_TABLE + i*2] == userName) then
+                userId = i;
+                break;
+            endif;
+            i = i+1;
+        endwhile;
+
+        if(userId == -1) then
+            [retAddr] = -2;
+            [mode] = 0;
+            SP = userSP;
+            ireturn;
+        endif;
+
+        //if curr user is not userId we got -> and not root -> return -1
+        if([SYSTEM_STATUS_TABLE + 0] != userId) then
+            if([SYSTEM_STATUS_TABLE + 0] != ROOT) then
+                [retAddr] = -1;
+                [mode] = 0;
+                SP = userSP;
+                ireturn;
+            endif;
+        endif;
+
+        encrypt password;
+        [USER_TABLE + userId*2 + 1] = password;
+
+        [retAddr] = 0;
+    endif;  
+endif;
+
+
+//getuid -> syscall 25
+//*arg -> user id
+//*return values -> 
+//  userName	Success
+// -1	invalid user id
+if(syscall == INT_GETUNAME) then
+    alias userId R6;
+    userId = [[PTBR + 2*((userSP - 4)/512)] * 512 + (userSP - 4) % 512];
+
+    if(userId<0 || userId>15) then
+        [retAddr] = -1;
+        [mode] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+    if([USER_TABLE + userId*2] == -1) then
+        [retAddr] = -1;
+        [mode] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    [retAddr] = [USER_TABLE + userId*2];
+endif;
+
+
+//getuid -> syscall 26
+//*arg -> user name
+//*return values -> 
+//  userId	Success
+// -1	invalid userName
+if(syscall == INT_GETUID) then
+    alias i R6;
+    i = 0;
+    alias userName R7;
+    userName = [[PTBR + 2*((userSP - 4)/512)] * 512 + (userSP - 4) % 512];
+
+    while(i < MAX_USER_NUM) do
+        if([USER_TABLE + i*2] == userName) then
+            [retAddr] = i;
+            [mode] = 0;
+            SP = userSP;
+            ireturn;
+        endif;
+        i = i+1;
+    endwhile;
+
+    [retAddr] = -1;
+endif;
+
+[mode] = 0;
+SP = userSP;
+ireturn;

@@ -1,0 +1,58 @@
+//*arg -> None
+//*return values -> 
+// -1	on error else does not return
+
+breakpoint;
+
+alias userSP R1;
+userSP = SP;
+
+alias pid R2;
+pid = [SYSTEM_STATUS_TABLE + 1];
+
+alias retAddr R3;
+retAddr = [PTBR + 2*((userSP - 1)/512)] * 512 + (userSP - 1) % 512;
+
+alias mode R4;
+mode = PROCESS_TABLE + (pid*16) + 9;
+
+[mode] = INT_LOGOUT;   //SET MODE FLAG TO SYS CALL NUM - 28
+
+//CHANGE FROM USER STACK TO KERNAL STACK
+[PROCESS_TABLE + (pid*16) + 13] = SP;
+SP = [PROCESS_TABLE + (pid*16) + 11] * 512 - 1;   
+
+//if curr process is not login process -> ret -1
+if(pid != SHELL_PROCESS) then
+    [retAddr] = -1;
+    [mode] = 0;
+    SP = userSP;
+    ireturn;
+endif;
+
+multipush(R1,R2,R3,R4);
+R1 = KILL_ALL;    // 5
+R2 = pid;
+call PROCESS_MANAGER;
+multipop(R1,R2,R3,R4);
+
+breakpoint;
+
+[PROCESS_TABLE + pid*16 + 4] = TERMINATED;
+
+// Shell should be set ready to run when the next user logs in. -> set begining ip to stack
+[[PTBR + 16]*512] = [[PTBR + 8]*512 + 1];
+
+//reset userSp of shell
+[PROCESS_TABLE + 2*16 + 13] = 8*512;
+
+//wake login process
+[PROCESS_TABLE + 1*16 + 4] = READY;
+
+[SYSTEM_STATUS_TABLE + 0] = 0;
+
+call SCHEDULER;
+
+[mode] = 0;
+SP = userSP;
+ireturn;

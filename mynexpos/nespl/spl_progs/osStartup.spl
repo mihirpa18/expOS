@@ -1,0 +1,137 @@
+//BOOT modules
+loadi(54,67);
+loadi(55,68);
+
+//idle process
+loadi(69,11);
+
+//set sp to kernel stack of idle process
+SP=(76*512)-1;
+
+call BOOT_MODULE;
+
+//-----------------------------------------------------------------------------------------------------------------------------------
+
+alias i R1;
+i = 0;
+
+while(i <= SWAPPER_DAEMON) do
+    PTBR = PAGE_TABLE_BASE + i*20;
+    PTLR = 10;
+    alias stackPage R2;
+    if (i == IDLE_PROCESS) then
+        stackPage = 70;
+    endif;
+    if (i == SWAPPER_DAEMON) then
+        stackPage = 81;
+    endif;
+    if (i == IDLE2_PROCESS) then
+        stackPage = 83;
+    endif;
+
+    //Library
+    [PTBR+0] = -1;
+    [PTBR+1] = "0000";
+    [PTBR+2] = -1;
+    [PTBR+3] = "0000";
+
+
+    // Heap
+    [PTBR+4] = -1;
+    [PTBR+5] = "0000";
+    [PTBR+6] = -1;
+    [PTBR+7] = "0000";
+
+    // Code FOR IDLE
+    [PTBR+8] = 69;
+    [PTBR+9] = "0100";
+    [PTBR+10] = -1;
+    [PTBR+11] = "0000";
+    [PTBR+12] = -1;
+    [PTBR+13] = "0000";
+    [PTBR+14] = -1;
+    [PTBR+15] = "0000";
+
+    // Stack FOR IDLE 
+    [PTBR+16] = stackPage;
+    [PTBR+17] = "0110";
+    [PTBR+18] = -1;
+    [PTBR+19] = "0000";
+
+    if (i == IDLE_PROCESS) then
+        i = IDLE2_PROCESS;
+    else
+        i = i+1;
+    endif;
+endwhile;
+
+
+//SET UP PROCESS TABLE FOR IDLE
+[PROCESS_TABLE+1]=0;
+[PROCESS_TABLE+3]=0;
+[PROCESS_TABLE+4]=RUNNING;
+[PROCESS_TABLE+11]=76;
+[PROCESS_TABLE+12]=0;
+[PROCESS_TABLE+13]=8*512;
+[PROCESS_TABLE+14]=PAGE_TABLE_BASE;
+[PROCESS_TABLE+15]=10;
+
+//SYSTEM STATUS TABLE -> IDLE 
+[SYSTEM_STATUS_TABLE + 1]=0;
+
+//Transfer the entry point value from the header of the idle process to the top of the user stack of the idle process
+[70*512]=[69*512+1];
+
+//-----------------------------------------------------------------------------------------------------------------------------------
+
+//SET UP PROCESS TABLE FOR IDLE2
+alias idle2_processTable R2;
+idle2_processTable = PROCESS_TABLE + IDLE2_PROCESS*16;
+[idle2_processTable + 1] = IDLE2_PROCESS;
+[idle2_processTable + 3]=0;
+[idle2_processTable + 4]=RUNNING;
+[idle2_processTable + 11]=84;
+[idle2_processTable + 12]=0;
+[idle2_processTable + 13]=8*512;
+[idle2_processTable + 14]=PAGE_TABLE_BASE + IDLE2_PROCESS*20;
+[idle2_processTable + 15]=10;
+
+//SYSTEM STATUS TABLE -> IDLE 
+[SYSTEM_STATUS_TABLE + 6] = IDLE2_PROCESS;
+
+//Transfer the entry point value from the header of the idle process to the top of the user stack of the idle process
+[83*512]=[69*512+1];
+
+//-----------------------------------------------------------------------------------------------------------------------------------
+
+//SET UP PROCESS TABLE FOR swapper daemon
+alias swapper_processTable R2;
+swapper_processTable = PROCESS_TABLE + SWAPPER_DAEMON*16;
+[swapper_processTable ] = 0 ;
+[swapper_processTable + 1] = 15;
+[swapper_processTable + 3] = 0;
+[swapper_processTable + 4] = CREATED;
+[swapper_processTable + 11] = 82;
+[swapper_processTable + 12] = 0;
+[swapper_processTable + 13] = 8*512;
+[swapper_processTable + 14] = PAGE_TABLE_BASE + SWAPPER_DAEMON*20;
+[swapper_processTable + 15] = 10;
+
+//Transfer the entry point value from the header of the idle process to the top of the user stack of the idle process
+[81*512] = [69*512 +1];
+
+[KERN_LOCK] = 0;
+[SCHED_LOCK] = 0;
+[GLOCK] = 0;
+
+SP=8*512;
+
+PTBR = PAGE_TABLE_BASE;
+PTLR = 10;
+
+start;
+
+breakpoint;
+ireturn;
+
+

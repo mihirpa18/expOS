@@ -1,0 +1,280 @@
+alias functionNum R1;
+//breakpoint;
+
+//aquire buffer -> 1
+if(functionNum == ACQUIRE_BUFFER) then
+    alias buffNum R2;
+    alias pid R3;
+
+    while([BUFFER_TABLE + buffNum*4 + 2] != -1) do
+        [PROCESS_TABLE + (pid*16) + 4] = WAIT_BUFFER;
+        [PROCESS_TABLE + (pid*16) + 5] = buffNum;
+
+        multipush(R1,R2,R3);
+        R1 = RELEASE_LOCK;
+        R2 = KERN_LOCK;
+        call ACCESS_CONTROL;
+        multipop(R1,R2,R3);
+
+        multipush(R1,R2,R3);
+        call SCHEDULER;
+        multipop(R1,R2,R3);
+
+        multipush(R1,R2,R3);
+        R1 = ACQUIRE_KERN_LOCK;
+        call ACCESS_CONTROL;
+        multipop(R1,R2,R3);
+
+    endwhile;
+    
+    [BUFFER_TABLE + buffNum*4 + 2] = pid;
+
+    return;
+endif;
+
+//-----------------------------------------------------------------------------------------------------------------------------
+
+//release buffer - 2
+if(functionNum == RELEASE_BUFFER) then
+    alias buffNum R2;
+    alias pid R3;
+
+    if(pid != [BUFFER_TABLE + buffNum*4 + 2]) then
+        R0 = -1;
+        return;
+    endif;
+
+    [BUFFER_TABLE + buffNum*4 + 2] = -1;
+
+    alias i R4;
+    i = 0;
+    while(i<MAX_PROC_NUM) do
+        if(([PROCESS_TABLE + i*16 + 4] == WAIT_BUFFER) && ([PROCESS_TABLE + i*16 + 5] == buffNum)) then
+            [PROCESS_TABLE + i*16 + 4] = READY;
+            [PROCESS_TABLE + i*16 + 5] = -1;
+        endif;
+        i = i + 1;
+    endwhile;
+
+    R0 = 0;
+    return;
+endif;
+
+
+//-----------------------------------------------------------------------------------------------------------------------------
+
+//aquire disk
+if(functionNum==3) then
+    alias currentPID R2;
+    //breakpoint;
+    
+    //WAIT IN LOOP UNTIL disk IS FREE
+    while([DISK_STATUS_TABLE+0]==1) do
+        //state ->wait disk
+        [PROCESS_TABLE + (currentPID*16) +4]=WAIT_DISK;
+
+        multipush(R1,R2);
+        R1 = RELEASE_LOCK;
+        R2 = KERN_LOCK;
+        call ACCESS_CONTROL;
+        multipop(R1,R2);
+
+        multipush(R1,R2);
+        call SCHEDULER;
+        multipop(R1,R2);
+
+        multipush(R1,R2);
+        R1 = ACQUIRE_KERN_LOCK;
+        call ACCESS_CONTROL;
+        multipop(R1,R2);
+
+    endwhile;
+
+    [DISK_STATUS_TABLE+0]=1;
+    [DISK_STATUS_TABLE+4]=currentPID;
+
+    return;
+
+endif;
+
+//-----------------------------------------------------------------------------------------------------------------
+
+//aquire inode 
+if(functionNum == ACQUIRE_INODE) then
+    alias ind R2;
+    alias pid R3;
+
+    while([FILE_STATUS_TABLE + ind*4 + 0] != -1) do
+        [PROCESS_TABLE + pid*16 + 4] = WAIT_FILE;
+        [PROCESS_TABLE + pid*16 + 5] = ind;
+
+        multipush(R1,R2,R3);
+        R1 = RELEASE_LOCK;
+        R2 = KERN_LOCK;
+        call ACCESS_CONTROL;
+        multipop(R1,R2,R3);
+
+        multipush(R1,R2,R3);
+        call SCHEDULER;
+        multipop(R1,R2,R3);
+
+        multipush(R1,R2,R3);
+        R1 = ACQUIRE_KERN_LOCK;
+        call ACCESS_CONTROL;
+        multipop(R1,R2,R3);
+
+    endwhile;
+
+    //file was deleted by some other process
+    if([INODE_TABLE + ind*16 + 1] == -1) then
+        R0 = -1;
+    else
+        [FILE_STATUS_TABLE + ind*4 + 0] = pid;
+
+        R0 = 0;
+    endif;
+
+    return;
+endif;
+
+//-----------------------------------------------------------------------------------------------------------------
+
+//release inode -> 5
+if(functionNum == RELEASE_INODE) then
+    alias ind R2;
+    alias pid R3;
+
+    if([FILE_STATUS_TABLE + ind*4 + 0] != pid) then
+        R0 = -1;
+    else
+        [FILE_STATUS_TABLE + ind*4 + 0] = -1;
+
+        alias i R4;
+        i=0;
+        while(i<MAX_PROC_NUM) do
+            if([PROCESS_TABLE + i*16 + 4] == WAIT_FILE && [PROCESS_TABLE + i*16 + 5] == ind) then
+                [PROCESS_TABLE + i*16 + 4] = READY;
+                [PROCESS_TABLE + i*16 + 5] = -1;
+            endif;
+            i= i+1;
+        endwhile;
+
+        R0 = 0;
+    endif;
+
+    return;
+endif;
+
+//-----------------------------------------------------------------------------------------------------------------
+
+
+//aquire semaphore -> 6
+if(functionNum == ACQUIRE_SEMAPHORE) then
+    alias currentPID R2;
+    alias i R3;
+    i=0;
+
+    alias semIndex R4;
+    semIndex = -1;
+
+    while(i<MAX_SEM_COUNT) do
+        if(([SEMAPHORE_TABLE + 4*i + 1]) == 0) then
+            semIndex = i;
+            break;
+        endif;
+        i=i+1;
+    endwhile;
+
+    if(semIndex == -1) then
+        R0=-1;
+    else
+        [SEMAPHORE_TABLE + semIndex*4] = -1;     //locking pid
+        [SEMAPHORE_TABLE + semIndex*4 + 1] = 1;  //process count
+
+        R0 = semIndex;
+    endif;
+    return;
+endif;
+
+//release semaphore
+if(functionNum == RELEASE_SEMAPHORE) then
+    alias semIndex R2;
+    alias pid R3;
+
+    //if semaphore is locked by current process  
+    if([SEMAPHORE_TABLE + semIndex*4] == pid) then
+        [SEMAPHORE_TABLE + semIndex*4] = -1;
+
+        alias i R4;
+        i=0;
+        while(i<MAX_PROC_NUM) do
+            if(([PROCESS_TABLE + i*16 + 4] == WAIT_SEMAPHORE) &&  ([PROCESS_TABLE + i*16 + 5] == semIndex)) then
+                [PROCESS_TABLE + i*16 + 4] = READY;
+            endif;
+            i=i+1;
+        endwhile;
+    endif;
+
+    [SEMAPHORE_TABLE + semIndex*4 + 1] = [SEMAPHORE_TABLE + semIndex*4 + 1] - 1;  //decrement process count 
+    
+    return;
+endif;
+
+//aquire terminal
+if(functionNum==8) then
+    alias currentPID R2;
+    //WAIT IN LOOP UNTIL TERMINAL IS FREE
+    while([TERMINAL_STATUS_TABLE]==1) do
+        [PROCESS_TABLE+(currentPID*16)+4]=WAIT_TERMINAL;  //CHANGE STATE
+
+        multipush(R1,R2);
+        R1 = RELEASE_LOCK;
+        R2 = KERN_LOCK;
+        call ACCESS_CONTROL;
+        multipop(R1,R2);
+
+        multipush(R1,R2);
+        call SCHEDULER;
+        multipop(R1,R2);
+
+        multipush(R1,R2);
+        R1 = ACQUIRE_KERN_LOCK;
+        call ACCESS_CONTROL;
+        multipop(R1,R2);  //this will be only executed after scheduler schedules the process again
+
+    endwhile;
+
+    [TERMINAL_STATUS_TABLE]=1;
+    [TERMINAL_STATUS_TABLE+1]=currentPID;
+
+    
+    return;
+endif;
+
+//---------------------------------------------------------------------------------------------------------------
+
+//release terminal
+if(functionNum==9) then
+    alias currentPID R2;
+
+    //currentPID and PID stored in the Terminal Status table should be same
+    if([TERMINAL_STATUS_TABLE+1]!=currentPID) then
+        R0=-1;
+        return;
+    endif;
+
+    [TERMINAL_STATUS_TABLE]=0;
+
+    //change status of all waiting process
+    alias i R3;
+    i=1;
+    while(i<MAX_PROC_NUM) do
+        if([PROCESS_TABLE+(i*16)+4]==WAIT_TERMINAL) then
+            [PROCESS_TABLE+(i*16)+4]=READY;
+        endif;
+        i=i+1;
+    endwhile;
+
+    R0=0;
+    return;
+endif;

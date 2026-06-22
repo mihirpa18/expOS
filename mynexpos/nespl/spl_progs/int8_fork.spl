@@ -1,0 +1,185 @@
+alias userSP R1;
+userSP=SP;
+
+alias pid R10;
+pid = [SYSTEM_STATUS_TABLE + CORE*5 + 1];
+
+alias parentRet R11;
+parentRet = [PTBR + ((userSP-1)/512)*2]*512 + (userSP-1)%512;
+
+alias mode R12;
+mode = PROCESS_TABLE+ (pid*16) +9;
+
+[mode]=8;   //mode flag
+
+//switch to kernal stack
+[PROCESS_TABLE+ (pid*16) +13]=SP;
+SP=[PROCESS_TABLE+ (pid*16) +11]*512-1;
+
+multipush(R1,R10,R11,R12);
+R1 = ACQUIRE_KERN_LOCK; //1
+call ACCESS_CONTROL;
+multipop(R1,R10,R11,R12);
+
+//invoke get pcb entry -> to get new pid for child process
+multipush(R1,R10,R11,R12);
+R1=GET_PCB_ENTRY;
+call PROCESS_MANAGER;
+multipop(R1,R10,R11,R12);
+
+alias childPID R2;
+childPID=R0;
+
+if(childPID==-1) then 
+    [parentRet]=-1;     //return -1
+    goto returnCode;
+endif;
+
+PTBR=PAGE_TABLE_BASE + (pid*20);
+
+//if no heap page were allocated then allocate using get free page AND set up page table entries accordingly
+if([PTBR+4]==-1) then
+    multipush(R1,R2,R10,R11,R12);
+    R1=GET_FREE_PAGE;
+    call MEMORY_MANAGER;
+    multipop(R1,R2,R10,R11,R12);
+    [PTBR+4]=R0;
+    [PTBR+5]="0110";
+
+    multipush(R1,R2,R10,R11,R12);
+    R1=GET_FREE_PAGE;
+    call MEMORY_MANAGER;
+    multipop(R1,R2,R10,R11,R12);
+    [PTBR+6]=R0;
+    [PTBR+7]="0110";
+endif;
+
+//allocate 2 stack and one user area page for child process
+alias stackPage1 R3;
+alias stackPage2 R4;
+alias UAP R5;
+
+multipush(R1,R2,R3,R4,R5,R10,R11,R12);
+R1=GET_FREE_PAGE;
+call MEMORY_MANAGER;
+multipop(R1,R2,R3,R4,R5,R10,R11,R12);
+stackPage1=R0;
+
+multipush(R1,R2,R3,R4,R5,R10,R11,R12);
+R1=GET_FREE_PAGE;
+call MEMORY_MANAGER;
+multipop(R1,R2,R3,R4,R5,R10,R11,R12);
+stackPage2=R0;
+
+multipush(R1,R2,R3,R4,R5,R10,R11,R12);
+R1=GET_FREE_PAGE;
+call MEMORY_MANAGER;
+multipop(R1,R2,R3,R4,R5,R10,R11,R12);
+UAP=R0;
+
+alias parentPID R6;
+parentPID = pid;
+
+//initialize process table for child
+
+alias childPT R13;
+childPT = PROCESS_TABLE+ (childPID*16);
+
+//following will be same for both parent and child process
+[childPT + 3]=[PROCESS_TABLE+ (parentPID*16) +3];       //userid
+[childPT + 6]=[PROCESS_TABLE+ (parentPID*16) +6];       //swap flag
+[childPT + 10]=[PROCESS_TABLE+ (parentPID*16) +10];       //user area swap flag
+[childPT + 7]=[PROCESS_TABLE+ (parentPID*16) +7];       //inode index
+[childPT + 13]=[PROCESS_TABLE+ (parentPID*16) +13];       //uptr -> as content of the user stack is same for both of them
+
+//following are set to zero as child process start its execution from user mode
+[childPT + 9]=0;     //mode flag
+[childPT + 12]=0;     //kptr
+[childPT + 0]=0;     //tick
+
+[childPT + 2]=parentPID;
+[childPT + 4]=CREATED;   
+[childPT + 11]=UAP;    //user area page number
+//rest of entries are already set or not needed to be set
+
+//Child process shares the files and the semaphores opened by the parent process -> set per process resource table
+alias i R7;
+i=0;
+alias resource_table R8;
+resource_table = UAP*512 + RESOURCE_TABLE_OFFSET;
+while(i<16) do
+    [resource_table + i]=[[PROCESS_TABLE + (parentPID*16) +11]*512 + RESOURCE_TABLE_OFFSET +i];
+    [resource_table + i + 1]=[[PROCESS_TABLE + (parentPID*16) +11]*512 + RESOURCE_TABLE_OFFSET +i + 1];
+
+    //If the resource is semaphore -> increment the process count -> parent and child share the same semaphore
+    if([resource_table + i] == SEMAPHORE) then
+        [SEMAPHORE_TABLE + [resource_table + i + 1]*4 + 1] = [SEMAPHORE_TABLE + [resource_table + i + 1]*4 + 1] + 1;
+    endif;
+    //if resource is file -> increment the OPEN INSTANCE COUNT 
+    if([resource_table + i] == FILE) then
+        [OPEN_FILE_TABLE + [resource_table + i + 1]*4 + 1] = [OPEN_FILE_TABLE + [resource_table + i + 1]*4 + 1] + 1;
+    endif;
+    i=i+2;
+endwhile;
+
+//copy disk map table
+i=0;
+while(i<10) do
+    [DISK_MAP_TABLE + (childPID*10) +i]=[DISK_MAP_TABLE + (parentPID*10) +i];
+    i=i+1;
+endwhile;
+
+//invalidate stack 
+[DISK_MAP_TABLE + (childPID*10) + 8] = -1;
+[DISK_MAP_TABLE + (childPID*10) + 9] = -1;
+
+
+//set up page table for child
+alias childPTBR R9;
+childPTBR=PAGE_TABLE_BASE+(childPID*20);
+//copy heap,library and code page from parent
+i=0;
+while(i<16) do
+    [childPTBR+i]=[PTBR+i];
+    if([childPTBR+i]!=-1) then
+        [MEMORY_FREE_LIST+[childPTBR+i]]=[MEMORY_FREE_LIST+[childPTBR+i]]+1;          //increment mem free list of shared pages
+    endif;
+    [childPTBR+i+1]=[PTBR+i+1];
+    i=i+2;
+endwhile;
+//stack pages
+[childPTBR+16]=stackPage1;
+[childPTBR+17]=[PTBR+17];
+[childPTBR+18]=stackPage2;
+[childPTBR+19]=[PTBR+19];
+
+//copy contents of user stack page word by word
+i=0;
+while(i<512) do
+    [(stackPage1*512) +i]=[[PTBR+16]*512 +i];
+    i=i+1;
+endwhile;
+i=0;
+while(i<512) do
+    [(stackPage2*512) +i]=[[PTBR+18]*512 +i];
+    i=i+1;
+endwhile;
+
+//breakpoint;
+
+//store bp on top of kernal stack of Child
+[[PROCESS_TABLE + childPID * 16 + 11] * 512] = BP;
+
+
+//return value of parent
+[parentRet]=childPID;
+//return value for child
+[[childPTBR + ((userSP-1)/512)*2]*512 + (userSP-1)%512]=0;
+
+returnCode:
+    R1 = RELEASE_LOCK;
+    R2 = KERN_LOCK;
+    call ACCESS_CONTROL;
+    [mode] = 0;
+    SP=userSP;
+    ireturn;

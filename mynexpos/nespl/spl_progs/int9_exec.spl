@@ -1,0 +1,188 @@
+alias userSP R0;
+userSP=SP;
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + CORE*5 + 1]*16) + 13] = SP;
+SP=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + CORE*5 + 1]*16) + 11] * 512 - 1;
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + CORE*5 + 1] *16) + 9]=9;  //SET MODE FLAG TO 9 -> exec ->sys call num 9
+
+multipush(R1,R10,R11,R12);
+R1 = ACQUIRE_KERN_LOCK; //1
+call ACCESS_CONTROL;
+multipop(R1,R10,R11,R12);
+
+//get name of file using user stack
+alias fileNamePage R1;
+alias fileNameAddr R2;
+fileNamePage=[PTBR + 2*((userSP-4)/512)];
+fileNameAddr=fileNamePage*512 + (userSP-4)%512;
+
+alias fileName R3;
+fileName=[fileNameAddr];
+
+
+//validate inode table and xexe format
+alias inodeInd R4;
+inodeInd=0;
+while(inodeInd<MAX_FILE_NUM) do
+    if([INODE_TABLE + (inodeInd*16) + 1] == fileName) then
+        break;
+    else
+        inodeInd=inodeInd+1;
+    endif;
+endwhile;
+
+//if file format is not xexe or no such file is found return 
+if(inodeInd==MAX_FILE_NUM || ([INODE_TABLE + (inodeInd*16) + 0]!=EXEC)) then
+    print "inv_file";
+    alias retAddr R5;
+    retAddr=[PTBR + 2*((userSP-1)/512)]*512 + ((userSP-1)%512);
+    [retAddr]=-1;     //return -1
+    SP=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + CORE*5 + 1] *16) + 13];
+
+    R1 = RELEASE_LOCK;
+    R2 = KERN_LOCK;
+    call ACCESS_CONTROL;
+
+    ireturn;
+endif;
+
+//calling exit function in process manager module to deallocate resources and pages of current process
+multipush(R0,R1,R2,R3,R4);      //STORE regs
+R1=3;                           //FUNCTION NUM IS 3 FOR EXIT PROCESS
+R2=[SYSTEM_STATUS_TABLE + CORE*5 + 1];     //CURR PID
+
+call PROCESS_MANAGER;           //mod 1 -> process manager module
+
+//print "processOk";
+
+multipop(R0,R1,R2,R3,R4);       //RESTORE 
+
+alias userAreaPage R5;
+userAreaPage=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + CORE*5 + 1]*16) + 11];
+
+//increment mem free list of the userarea page as it is reclaims the same user area page  for new process
+[MEMORY_FREE_LIST + userAreaPage]=[MEMORY_FREE_LIST + userAreaPage]+1;
+//decrement mem free count field in system status table
+[SYSTEM_STATUS_TABLE + 2]=[SYSTEM_STATUS_TABLE + 2]-1;
+
+SP=userAreaPage*512-1;
+
+//Update the STATE field to RUNNING 
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + CORE*5 + 1]*16) + 4]=RUNNING;
+//store inode index obtained above in the inode index field in the process table.
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + CORE*5 + 1]*16) + 7]=inodeInd;
+
+//----------------------------------------------------------------------------------------------------------------------------------
+
+//initialize perprocess resource_table
+alias resource_table R7;
+resource_table=userAreaPage*512+RESOURCE_TABLE_OFFSET;   //last 16 words is per process resource table in user area page
+R9=0;
+while(R9<16) do
+    [resource_table+R9]=-1;
+    R9=R9+1;
+endwhile;
+
+//------------------------------------------------------------------------------------------------------------------------------------
+
+//Allocate new pages and set the page table entries for the new process
+PTBR=PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + CORE*5 + 1] * 20;
+
+//SET Library CODE
+[PTBR+0]=63;
+[PTBR+1]="0100";
+[PTBR+2]=64;
+[PTBR+3]="0100";
+ 
+//HEAP -> invalidate heap entries -> Memory will be allocated when page fault occurs 
+[PTBR+4]=-1;
+[PTBR+5]="0000";
+[PTBR+6]=-1;
+[PTBR+7]="0000";
+
+//STACK -> Allocate stack pages
+multipush(R0,R1,R2,R3,R4,R5);
+R1=1;  
+call MEMORY_MANAGER;
+[PTBR+16]=R0;
+[PTBR+17]="0110";
+R1=1;
+call MEMORY_MANAGER;
+[PTBR+18]=R0;
+[PTBR+19]="0110";
+multipop(R0,R1,R2,R3,R4,R5);
+
+//CODE
+//get code page function is called for the first page and other pages are loaded lazily so they are set to invalid now
+if([INODE_TABLE + (inodeInd*16) + 8]!=-1) then
+        multipush(R1,R2,R3,R4,R5);
+        R1=5;
+        R2=[INODE_TABLE+(inodeInd*16)+8];
+        call MEMORY_MANAGER;
+        multipop(R1,R2,R3,R4,R5);
+
+        
+        [PTBR+ 8]=R0;
+        [PTBR+ 9]="0100";
+    else    
+        [PTBR+ 8]=-1;
+        [PTBR+ 9]="0000";
+endif;
+
+alias j R6;
+j=10;
+while(j<16) do  
+    [PTBR+ j]=-1;
+    [PTBR+ j+1]="0000";
+    j=j+2;
+endwhile;
+
+//breakpoint;
+
+//---------------------------------------------------------------------------------------------------------------------------
+
+//initialize disk map table
+R7=8;
+alias diskMap R8;
+diskMap=DISK_MAP_TABLE+ ([SYSTEM_STATUS_TABLE + CORE*5 + 1]*10);
+
+//breakpoint;
+
+//set code pages in disk map table from inode table
+j=4;
+while(j<8) do
+    [diskMap+j]=[INODE_TABLE+ (inodeInd*16) +R7];
+    R7=R7+1;
+    j=j+1;
+endwhile;
+
+//breakpoint;
+
+//set remaining entries (stack,heap,etc to -1)
+j=0;
+while(j<4) do
+    [diskMap+j]=-1;
+    j=j+1;
+endwhile;
+j=8;
+while(j<10) do
+    [diskMap+j]=-1;
+    j=j+1;
+endwhile;
+
+//-----------------------------------------------------------------------------------------------------------------------------
+
+//Store the entry point IP (present in the header of first code page) value on top of the user stack.
+[[PTBR+16]*512]=[[PTBR+8]*512+1];
+
+R1 = RELEASE_LOCK;
+R2 = KERN_LOCK;
+call ACCESS_CONTROL;
+
+//change to user stack
+SP=8*512;
+[PROCESS_TABLE+([SYSTEM_STATUS_TABLE + CORE*5 + 1]*16)+9]=0;
+
+
+ireturn;

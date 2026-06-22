@@ -1,0 +1,89 @@
+//number of kernal switches
+[SYSTEM_STATUS_TABLE + 27] = [SYSTEM_STATUS_TABLE + 27] + 1;
+
+alias userSP R0;
+userSP = SP;
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] * 16 ) + 13] = SP;
+SP=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1 ] * 16 ) + 11] * 512 - 1;
+
+//extract sys call number
+alias syscall R1;
+syscall=[[PTBR + ((userSP - 5) / 512) * 2] * 512 + (userSP - 5) % 512];
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9] = syscall;
+
+//semlock 
+if(syscall == INT_SEMLOCK) then
+    breakpoint;
+    //sem descriptor is passed as argument 
+    alias semId R2;
+    semId = [[PTBR + ((userSP - 4) / 512) * 2] * 512 + (userSP - 4) % 512];
+
+    alias resource_table R3;
+    resource_table=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1]*16) + 11]*512 + RESOURCE_TABLE_OFFSET;
+
+    if(semId<0 || semId>7 || [resource_table + 2*semId] != SEMAPHORE) then
+        [[PTBR + ((userSP - 1) / 512) * 2] * 512 + (userSP - 1) % 512] = -1;
+    else
+        alias semIndex R4;
+        semIndex = [resource_table + semId*2 + 1];
+
+        while([SEMAPHORE_TABLE + semIndex*4] != -1 && [SEMAPHORE_TABLE + semIndex*4] != [SYSTEM_STATUS_TABLE+1]) do
+            [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 4] = WAIT_SEMAPHORE;
+            [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 5] = semIndex;
+
+            multipush(R0,R1,R2,R3,R4);
+            call SCHEDULER;
+            multipop(R0,R1,R2,R3,R4);
+        endwhile;
+
+        [SEMAPHORE_TABLE + 4*semIndex] = [SYSTEM_STATUS_TABLE + 1];    //locking pid = pid
+
+        [[PTBR + ((userSP - 1) / 512) * 2] * 512 + (userSP - 1) % 512] = 0;   //return 0
+
+    endif;
+endif;
+
+//sem unlock
+if(syscall == INT_SEMUNLOCK) then
+    //sem descriptor is passed as argument 
+    alias semId R2;
+    semId = [[PTBR + ((userSP - 4) / 512) * 2] * 512 + (userSP - 4) % 512];
+
+    alias resource_table R3;
+    resource_table=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1]*16) + 11]*512 + RESOURCE_TABLE_OFFSET;
+
+    if(semId<0 || semId>7 || [resource_table + 2*semId] != SEMAPHORE) then
+        [[PTBR + ((userSP - 1) / 512) * 2] * 512 + (userSP - 1) % 512] = -1;
+    else
+        alias semIndex R4;
+        semIndex = [resource_table + semId*2 + 1];
+
+        if([SEMAPHORE_TABLE + semIndex*4] != -1) then
+            if([SEMAPHORE_TABLE + semIndex*4] != [SYSTEM_STATUS_TABLE+1]) then
+                [[PTBR + ((userSP - 1) / 512) * 2] * 512 + (userSP - 1) % 512] = -2;
+            else
+                [SEMAPHORE_TABLE + semIndex*4] = -1;    //locking pid =-1 
+
+                alias i R5;
+                i=0;
+                while(i<16) do
+                    if(([PROCESS_TABLE + i*16 + 4] == WAIT_SEMAPHORE) && ([PROCESS_TABLE + i*16 + 5] == semIndex)) then
+                        [PROCESS_TABLE + i*16 + 4] = READY;
+                        [PROCESS_TABLE + i*16 + 5] = -1;
+                    endif;
+                    i=i+1;
+                endwhile;
+                [[PTBR + ((userSP - 1) / 512) * 2] * 512 + (userSP - 1) % 512] = 0;
+            endif;
+        else
+            [[PTBR + ((userSP - 1) / 512) * 2] * 512 + (userSP - 1) % 512] = 0;
+        endif;
+    endif;
+endif;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;
+SP=[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1] * 16 ) + 13];
+ireturn;
+
